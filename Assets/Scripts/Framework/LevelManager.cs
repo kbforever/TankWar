@@ -14,7 +14,9 @@ public class LevelManager : MonoBehaviour, IGameFeature
     [SerializeField] private bool loadLevelFromResources = true;
     [SerializeField] private string resourceLevelPath = "Levels/level";
 
-    private int currentLevelIndex = 0;
+
+    public int CurrentLevelIndex => currentLevelIndex;  
+    private int currentLevelIndex = -1;
     private bool isLoading = false;
     private LevelData currentLevelData;
 
@@ -25,7 +27,8 @@ public class LevelManager : MonoBehaviour, IGameFeature
     public void Initialize()
     {
         IsActive = true;
-        Subscribe<GameStateChangedEvent>(OnStateChanged);
+        currentLevelData = null;
+        // Subscribe<GameStateChangedEvent>(OnStateChanged);
         Subscribe<LoadLevelEvent>(OnLoadLevel);
     }
 
@@ -59,7 +62,7 @@ public class LevelManager : MonoBehaviour, IGameFeature
     public void LoadMainMenu()
     {
         if (isLoading) return;
-        currentLevelData = null;
+        
     }
 
     public void LoadLevel(int levelIndex)
@@ -99,11 +102,11 @@ public class LevelManager : MonoBehaviour, IGameFeature
 
         isLoading = false;
         // PublishLevelLoaded();
-
-        if (Framework?.CurrentState == GameState.Loading)
-        {
-            Framework.ChangeState(GameState.Playing);
-        }
+        Framework.ChangeState(GameState.Playing);
+        // if (Framework?.CurrentState == GameState.Loading)
+        // {
+            
+        // }
     }
 
     private LevelData LoadLevelData(int levelIndex)

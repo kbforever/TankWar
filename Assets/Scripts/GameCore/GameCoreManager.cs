@@ -4,10 +4,7 @@ using GameFramework;
 using UnityEngine;
 using LevelGeneration;
 using UnityEngine.UI;
-using Unity.VisualScripting;
-using System;
-using UnityEditor;
-using UnityEngine.Video;
+using System.Data.Common;
 
 public class GameCoreManager : MonoBehaviour, IGameFeature
 {
@@ -20,7 +17,8 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
     private PlayerTank playerTank1;
     private PlayerTank playerTank2;
 
-
+    private GameData currentGameData=> dataManager.GetGameData();
+    private LevelData currentLevelData;
     private readonly List<GameObject> levelCells = new List<GameObject>();
     private readonly List<EnemyTank> enemyTanks = new List<EnemyTank>();
     private readonly List<GameObject> boundaryObjects = new List<GameObject>();
@@ -47,6 +45,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         levelContainer = transform.Find("levelContainer") as RectTransform;
         dataManager = Framework.GetFeature<DataManager>();
         levelManager = Framework.GetFeature<LevelManager>();
+        currentLevelData = null;
         if (levelManager != null)
         {
             Framework?.SubscribeEvent<LevelManager.LevelLoadedEvent>(OnLevelLoaded);
@@ -75,25 +74,78 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         RenderLevel(levelEvent.LevelData);
     }
 
+
+
     public void OnGameStateChanged(GameState previousState, GameState nextState)
     {
         if (nextState == GameState.Playing)
         {
-            if (levelManager.CurrentLevelData == null)
+
+            if(previousState == GameState.Paused)
             {
-                Framework?.ChangeState(GameState.Loading);
+                Time.timeScale = 1f;
+                return;
             }
-            else if(levelManager!=null && levelManager.CurrentLevelData != null)
+
+
+            if (previousState == GameState.MainMenu && levelManager.CurrentLevelIndex!=currentGameData.LevelIndex) 
             {
-                RenderLevel(levelManager.CurrentLevelData);
+                Framework.ChangeState(GameState.Loading);
+                levelManager.LoadLevel(currentGameData.LevelIndex);
+                
+            }
+            if(levelManager.CurrentLevelData != null)
+            {
+                Time.timeScale = 1f;
+                currentLevelData = levelManager.CurrentLevelData;
+
+                RenderLevel(currentLevelData);
+
+                if(currentGameData.enmeyPositions != null)
+                {
+                    // 恢复玩家位置
+                    if (playerTank1 != null)
+                    {
+                        playerTank1.transform.position = currentGameData.player1Position;
+                    }
+                    if (playerTank2 != null)
+                    {
+                        playerTank2.transform.position = currentGameData.player2Position;
+                    }
+
+                    // 恢复敌人位置
+                    foreach (var enemyTank in enemyTanks)
+                    {
+                        if (enemyTank != null)
+                        {
+                            enemyTank.transform.position = currentGameData.enmeyPositions[enemyTanks.IndexOf(enemyTank)];
+                        }
+                    }
+                }
             }
             
+
+         
+            
         }
+        else if (nextState == GameState.Paused)
+        {
+            Time.timeScale = 0f;
+            UpdateGameData();
+        }
+        else if (nextState == GameState.GameOver)
+        {
+            Time.timeScale = 0f;
+            UpdateGameData();
+            
+        }
+        
+        
     }
 
     public void Shutdown()
     {
-         if (Framework != null)
+        if (Framework != null)
         {
             Framework.UnsubscribeEvent<LevelManager.LevelLoadedEvent>(OnLevelLoaded);
 
@@ -103,6 +155,12 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
 
             Framework.UnsubscribeEvent<BulletEvent>(CreateBullet);
         }
+        UpdateGameData();
+        
+        ClearLevelCells();
+        ClearPlayerTank();
+        ClearEnemyTanks();
+        ClearBoundaryObjects();
     }
 
     private void RenderLevel(LevelData levelData)
@@ -112,7 +170,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         ClearLevelCells();
         ClearPlayerTank();
         ClearBoundaryObjects();
-
+        ClearEnemyTanks();
         float cellSpaceSize = 5f; // 每个格子碰撞器往里收缩的大小
         Vector2 containerSize = levelContainer.rect.size;
         if (containerSize == Vector2.zero && levelContainer.parent is RectTransform parentRect)
@@ -188,7 +246,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         }
 
         // 生成玩家坦克
-        if (gameMode == GameMode.SinglePlayer && spawnPoints.Count == 1)
+        if (gameMode == GameMode.SinglePlayer && spawnPoints.Count >= 1)
         {
             playerTank1 = CreatePlayerTank(levelData, cellSize, spawnPoints[0], Color.green, 1);
         }
@@ -314,6 +372,29 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         return cell;
     }
 
+
+    private void UpdateGameData()
+    {
+        GameData gameData = new GameData
+        {
+            player1Position = playerTank1 != null ? playerTank1.transform.position : Vector2.zero,
+            player2Position = playerTank2 != null ? playerTank2.transform.position : Vector2.zero,
+            gameMode = dataManager.GetGameData().gameMode,
+            LevelIndex = levelManager.CurrentLevelIndex
+            
+        };
+        gameData.enmeyPositions = new Vector2[enemyTanks.Count];
+        foreach (var enemyTank in enemyTanks)
+        {
+            if (enemyTank != null)
+            {
+                gameData.enmeyPositions[enemyTanks.IndexOf(enemyTank)] = enemyTank.transform.position;
+            }
+        }
+
+        dataManager.SetGameData(gameData);
+        dataManager.SaveGameData();
+    }
 
 
     public sealed class BulletEvent : GameEvent

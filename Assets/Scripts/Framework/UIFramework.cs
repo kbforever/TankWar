@@ -51,6 +51,7 @@ public class UIFramework : MonoBehaviour, IGameFeature
 
         LoadAndRegisterPanel<MainMenuPanel>("MainMenuPanel");
         LoadAndRegisterPanel<GamePanel>("GamePanel");
+        LoadAndRegisterPanel<PausePanel>("PausePanel");
         Subscribe<GameStateChangedEvent>(OnStateChanged);
     }
 
@@ -66,16 +67,18 @@ public class UIFramework : MonoBehaviour, IGameFeature
         // 根据游戏状态显示/隐藏 UI
         if (nextState == GameState.MainMenu)
         {
+            HideAllPanels();
             ShowPanel("MainMenuPanel");
+            
         }
         else if (nextState == GameState.Playing)
         {
-            HidePanel("MainMenuPanel");
+            HideTopPanel();
             ShowPanel("GamePanel");
         }
         else if (nextState == GameState.Paused)
         {
-            ShowPanel("PauseMenuPanel");
+            ShowPanel("PausePanel");
         }
         else if (nextState == GameState.GameOver)
         {
@@ -151,6 +154,16 @@ public class UIFramework : MonoBehaviour, IGameFeature
         if (panelStack.Count > 0 && panelStack.Peek() == panel)
         {
             panelStack.Pop();
+        }
+    }
+
+    public void HideAllPanels()
+    {
+        while (panelStack.Count > 0)
+        {
+            var panel = panelStack.Pop();
+            panel.gameObject.SetActive(false);
+            panel.OnHide();
         }
     }
 

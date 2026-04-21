@@ -1,10 +1,9 @@
 using UnityEngine;
 using LevelGeneration;
 using Unity.VisualScripting;
-using System.Runtime.Versioning;
-using System.Net.NetworkInformation;
 
-public class PlayerTank : MonoBehaviour
+
+public class PlayerTank : MonoBehaviour,ITakeDamage
 {
     [Header("Player Tank")]
     [SerializeField] private float moveSpeed = 3.5f;
@@ -28,12 +27,10 @@ public class PlayerTank : MonoBehaviour
     private bool initialized;
     private int currentHealth;
 
+
     private void Awake()
     {
-        rectTransform = GetComponent<RectTransform>();
-        rb2d = GetComponent<Rigidbody2D>();
-        boxCollider = GetComponent<BoxCollider2D>();
-        FirePos = transform.Find(nameof(FirePos)).gameObject;
+        
     }
 
     private void Start()
@@ -71,6 +68,11 @@ public class PlayerTank : MonoBehaviour
 
     public void Initialize(float tileSize, Vector2Int spawnGridPosition, Vector2Int gridSize, Color tankColor, int playerIndex = 1, LevelData levelData = null)
     {
+
+        rectTransform = GetComponent<RectTransform>();
+        rb2d = GetComponent<Rigidbody2D>();
+        boxCollider = GetComponent<BoxCollider2D>();
+        FirePos = transform.Find(nameof(FirePos)).gameObject;
         if (rectTransform == null)
         {
             rectTransform = this.AddComponent<RectTransform>();
@@ -91,6 +93,7 @@ public class PlayerTank : MonoBehaviour
         this.playerIndex = playerIndex;
         this.levelData = levelData;
 
+        this.currentHealth = maxHealth;
         if (rb2d != null)
         {
             rb2d.gravityScale = 0f;
@@ -173,15 +176,17 @@ public class PlayerTank : MonoBehaviour
     }
 
 
-
+    private float attackCooldown = 1f;
+    private float lastAttackTime = 0f;
     private void Attack()
     {
         // 这里可以实现攻击逻辑，例如发射子弹等
         string attackKey = playerIndex == 1 ? "Attack" : "P2Attack";
-        if (inputManager.GetButtonDown(attackKey))
+        lastAttackTime -= Time.deltaTime;
+        if (inputManager.GetButton(attackKey) && lastAttackTime <= 0f)
         {
+            lastAttackTime = attackCooldown;
             Framework.PublishEvent<GameCoreManager.BulletEvent>(new GameCoreManager.BulletEvent(FirePos));
-            Debug.Log($"PlayerTank{playerIndex} attacks!");
              // 可以在这里添加攻击逻辑，例如实例化子弹等
         }
     }
@@ -208,6 +213,7 @@ public class PlayerTank : MonoBehaviour
             currentHealth = 0;
             // 可以在这里添加死亡逻辑
             Debug.Log($"PlayerTank{playerIndex} died!");
+            Destroy(this.gameObject);
         }
     }
 }

@@ -25,8 +25,14 @@ public class GamePanel : UIPanel
         // 自动获取 UI 元素
         scoreText = transform.Find("scoreText")?.GetComponent<Text>();
         pauseButton = transform.Find("pauseButton")?.GetComponent<Button>();
-        var gamecoreManager = this.gameObject.AddComponent<GameCoreManager>();
+        this.gameObject.TryGetComponent<GameCoreManager>(out var gamecoreManager);
+        gamecoreManager = gamecoreManager==null ? this.gameObject.AddComponent<GameCoreManager>():gamecoreManager;
+        // var gamecoreManager = this.gameObject.AddComponent<GameCoreManager>();
         Framework.RegisterFeature(gamecoreManager);
+
+
+
+        
         if (pauseButton != null)
         {
             pauseButton.onClick.AddListener(OnPauseGame);
@@ -74,7 +80,14 @@ public class GamePanel : UIPanel
         if (scoreText != null && dataManager != null)
         {
             var data = dataManager.GetGameData();
-            scoreText.text = "Score: " + data.playerScore;
+            if (data != null)
+            {
+                scoreText.text = "Score: " + data.playerScore;
+            }
+            else
+            {
+                scoreText.text = "Score: 0";
+            }
         }
     }
 }

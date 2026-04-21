@@ -78,9 +78,7 @@ public class MainMenuPanel : UIPanel
     {
         if (dataManager != null)
         {
-            var data = dataManager.GetGameData();
-            data.gameMode = GameMode.SinglePlayer;
-            dataManager.SetGameData(data);
+            dataManager.SetSavePath(GameMode.SinglePlayer);
         }
         StartGame();
     }
@@ -89,15 +87,16 @@ public class MainMenuPanel : UIPanel
     {
         if (dataManager != null)
         {
-            var data = dataManager.GetGameData();
-            data.gameMode = GameMode.TwoPlayer;
-            dataManager.SetGameData(data);
+            
+            dataManager.SetSavePath(GameMode.TwoPlayer);
+            
         }
         StartGame();
     }
 
     private void StartGame()
     {
+        
         // 开始游戏：切换到 Playing 状态
         var framework = GameFramework.GameFramework.Instance;
         if (framework != null)

@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using UnityEngine;
 using GameFramework;
+using System.Collections.Generic;
+using LevelGeneration;
 
 [DisallowMultipleComponent]
 public class DataManager : MonoBehaviour, IGameFeature
@@ -18,9 +20,18 @@ public class DataManager : MonoBehaviour, IGameFeature
     public void Initialize()
     {
         IsActive = true;
-        savePath = Path.Combine(Application.persistentDataPath, saveFileName);
+        
+        currentData = new GameData();
+        // Subscribe<GameStateChangedEvent>(OnStateChanged);
+    }
+
+
+
+    public void SetSavePath(GameMode gameMode)
+    {
+        savePath = Path.Combine(Application.persistentDataPath,gameMode.ToString(), saveFileName);
         LoadGameData();
-        Subscribe<GameStateChangedEvent>(OnStateChanged);
+        currentData.gameMode = gameMode;
     }
 
     public void FeatureUpdate() { }
@@ -29,17 +40,14 @@ public class DataManager : MonoBehaviour, IGameFeature
 
     public void OnGameStateChanged(GameState previousState, GameState nextState)
     {
-        // 在游戏结束时自动保存
-        if (nextState == GameState.GameOver)
-        {
-            SaveGameData();
-        }
+        
+        
     }
 
     public void Shutdown()
     {
         IsActive = false;
-        SaveGameData();
+        // SaveGameData();
         Unsubscribe<GameStateChangedEvent>(OnStateChanged);
     }
 
@@ -53,6 +61,7 @@ public class DataManager : MonoBehaviour, IGameFeature
 
     public void LoadGameData()
     {
+
         if (File.Exists(savePath))
         {
             string json = File.ReadAllText(savePath);
@@ -92,18 +101,28 @@ public class DataManager : MonoBehaviour, IGameFeature
     }
 }
 
+
+
+
+
+
+
 [Serializable]
 public class GameData
 {
-    public int playerLevel = 1;
+    public int LevelIndex = 0;
     public int playerScore = 0;
-    public Vector2 playerPosition = Vector2.zero;
-    public string lastSaveTime = "";
+    public Vector2 player1Position = Vector2.zero;
+
+    public Vector2 player2Position = Vector2.zero;
+
+    public Vector2[] enmeyPositions = null;
+
     public GameMode gameMode = GameMode.SinglePlayer;
+
 
     public GameData()
     {
-        lastSaveTime = DateTime.Now.ToString();
     }
 }
 
