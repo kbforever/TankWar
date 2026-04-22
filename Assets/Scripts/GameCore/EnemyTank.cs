@@ -28,10 +28,9 @@ public class EnemyTank : MonoBehaviour,ITakeDamage
     private GameFramework.GameFramework Framework=> GameFramework.GameFramework.Instance;
     private Rigidbody2D rb2d;
     private BoxCollider2D boxCollider;
-    private LevelData levelData;
     private Vector2 currentPosition;
     private Vector2 currentVelocity;
-    private Vector2Int gridSize;
+  
     private float tileSize;
     private Vector2 currentDirection;
     private float directionTimer;
@@ -60,7 +59,7 @@ public class EnemyTank : MonoBehaviour,ITakeDamage
     
     }
 
-    public void Initialize(float tileSize, Vector2Int spawnGridPosition, Vector2Int gridSize, Color tankColor, LevelData levelData)
+    public void Initialize(float tileSize, Vector2Int spawnGridPosition, Color tankColor)
     {
 
         rectTransform = GetComponent<RectTransform>();
@@ -84,8 +83,7 @@ public class EnemyTank : MonoBehaviour,ITakeDamage
         }
 
         this.tileSize = Mathf.Max(1f, tileSize);
-        this.gridSize = gridSize;
-        this.levelData = levelData;
+
         this.currentHealth = this.maxHealth;
 
         if (rb2d != null)
@@ -128,6 +126,76 @@ public class EnemyTank : MonoBehaviour,ITakeDamage
         initialized = true;
     }
 
+
+     public void Initialize(float tileSize, Vector2 pos,Color tankColor)
+    {
+
+        rectTransform = GetComponent<RectTransform>();
+        rb2d = GetComponent<Rigidbody2D>();
+        boxCollider = GetComponent<BoxCollider2D>();
+        FirePos = transform.Find(nameof(FirePos)).gameObject;
+        if (rectTransform == null)
+        {
+            rectTransform = this.AddComponent<RectTransform>();
+        }
+
+        if (rb2d == null)
+        {
+            
+            rb2d = this.AddComponent<Rigidbody2D>();
+        }
+
+        if (boxCollider == null)
+        {
+            boxCollider = this.AddComponent<BoxCollider2D>();
+        }
+
+        this.tileSize = Mathf.Max(1f, tileSize);
+
+        this.currentHealth = this.maxHealth;
+
+        if (rb2d != null)
+        {
+            rb2d.gravityScale = 0f;
+            rb2d.freezeRotation = true;
+            rb2d.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+            rb2d.interpolation = RigidbodyInterpolation2D.Interpolate;
+            rb2d.velocity = Vector2.zero;
+        }
+
+        if (boxCollider != null)
+        {
+            boxCollider.size = new Vector2(this.tileSize, this.tileSize);
+            boxCollider.offset = new Vector2(0, 0);
+        }
+
+        rectTransform.anchorMin = new Vector2(0, 0);
+        rectTransform.anchorMax = new Vector2(0, 0);
+        rectTransform.pivot = new Vector2(0.5f, 0.5f);
+
+        currentPosition = pos;
+        rectTransform.anchoredPosition = currentPosition;
+        rectTransform.sizeDelta = new Vector2(this.tileSize, this.tileSize);
+
+        if (rb2d != null)
+        {
+            rb2d.position = currentPosition;
+        }
+
+        var image = GetComponent<UnityEngine.UI.Image>();
+        if (image != null)
+        {
+            image.color = tankColor;
+        }
+
+        // 初始随机方向
+        ChangeDirection();
+
+        initialized = true;
+    }
+
+
+    
     private void HandleMovement()
     {
         directionTimer -= Time.deltaTime;
@@ -212,8 +280,8 @@ public class EnemyTank : MonoBehaviour,ITakeDamage
         {
             currentHealth = 0;
             // 可以在这里添加死亡逻辑
-
             
+            Framework.GetFeature<GameCoreManager>().enemyTanks.Remove(this);
             Framework.GetFeature<DataManager>().GetGameData().playerScore +=1;
             Destroy(this.gameObject);
             

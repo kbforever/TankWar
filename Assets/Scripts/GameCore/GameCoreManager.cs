@@ -17,10 +17,12 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
     private PlayerTank playerTank1;
     private PlayerTank playerTank2;
 
+    private float cellSize;
+    private List<Vector2Int> spawnPoints;
     private GameData currentGameData=> dataManager.GetGameData();
     private LevelData currentLevelData;
     private readonly List<GameObject> levelCells = new List<GameObject>();
-    private readonly List<EnemyTank> enemyTanks = new List<EnemyTank>();
+    public List<EnemyTank> enemyTanks = new List<EnemyTank>();
     private readonly List<GameObject> boundaryObjects = new List<GameObject>();
 
     public bool IsActive{get;private set;}
@@ -99,30 +101,37 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
                 Time.timeScale = 1f;
                 currentLevelData = levelManager.CurrentLevelData;
 
-                RenderLevel(currentLevelData);
+                
 
                 if(currentGameData.enmeyPositions != null)
                 {
+                    RenderLevel(currentLevelData,false);
                     // 恢复玩家位置
                     if (playerTank1 != null)
                     {
-                        playerTank1.transform.position = currentGameData.player1Position;
+                        playerTank1.GetComponent<RectTransform>().anchoredPosition = currentGameData.player1Position;
                     }
                     if (playerTank2 != null)
                     {
-                        playerTank2.transform.position = currentGameData.player2Position;
+                        playerTank2.GetComponent<RectTransform>().anchoredPosition = currentGameData.player2Position;
                     }
 
+                    enemyTanks.Clear();
                     // 恢复敌人位置
-                    foreach (var enemyTank in enemyTanks)
+                    for (int i = 0; i < currentGameData.enmeyPositions.Length; i++)
                     {
-                        if (enemyTank != null)
-                        {
-                            enemyTank.transform.position = currentGameData.enmeyPositions[enemyTanks.IndexOf(enemyTank)];
-                        }
+                        
+                        var enemyTank = CreateEnemyTank(cellSize,currentGameData.enmeyPositions[i], Color.red);
+                        // enemyTank.transform.position = currentGameData.enmeyPositions[i];
+                        enemyTanks.Add(enemyTank);
                     }
                 }
+                else
+                {
+                    RenderLevel(currentLevelData);
+                }
             }
+
             
 
          
@@ -163,7 +172,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         ClearBoundaryObjects();
     }
 
-    private void RenderLevel(LevelData levelData)
+    private void RenderLevel(LevelData levelData,bool GenEnemy = true)
     {
         if (levelContainer == null || levelData == null) return;
 
@@ -185,8 +194,8 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
 
         float cellWidth = containerSize.x / levelData.width;
         float cellHeight = containerSize.y / levelData.height;
-        float cellSize = Mathf.Min(cellWidth, cellHeight);
-
+        cellSize = Mathf.Min(cellWidth, cellHeight);
+        Debug.LogError(cellSize);
         // levelContainer.sizeDelta = new Vector2(cellSize * levelData.width, cellSize * levelData.height);
 
         for (int y = 0; y < levelData.height; y++)
@@ -217,7 +226,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
 
         CreateBoundary(levelData, cellSize);
         SpawnPlayerTank(levelData, cellSize);
-        SpawnEnemyTanks(levelData, cellSize);
+        if(GenEnemy) InitEnemyTanks(levelData, cellSize);
     }
 
     private void SpawnPlayerTank(LevelData levelData, float cellSize)
@@ -301,14 +310,14 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         }
     }
 
-    private void SpawnEnemyTanks(LevelData levelData, float cellSize)
+    private void InitEnemyTanks(LevelData levelData, float cellSize)
     {
         if (levelContainer == null || levelData == null) return;
 
         ClearEnemyTanks();
 
         // 找到所有敌方出生点
-        var spawnPoints = new List<Vector2Int>();
+        spawnPoints = new List<Vector2Int>();
         for (int y = 0; y < levelData.height; y++)
         {
             for (int x = 0; x < levelData.width; x++)
@@ -322,12 +331,12 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         // 生成敌方坦克
         foreach (var spawnPoint in spawnPoints)
         {
-            var enemyTank = CreateEnemyTank(levelData, cellSize, spawnPoint, Color.red);
+            var enemyTank = CreateEnemyTank(cellSize, spawnPoint, Color.red);
             enemyTanks.Add(enemyTank);
         }
     }
 
-    private EnemyTank CreateEnemyTank(LevelData levelData, float cellSize, Vector2Int spawnGrid, Color color)
+    private EnemyTank CreateEnemyTank(float cellSize, Vector2Int spawnGrid, Color color)
     {
         // GameObject tankObject = new GameObject("EnemyTank", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(BoxCollider2D), typeof(Rigidbody2D), typeof(EnemyTank));
         GameObject tankObject = Instantiate(Resources.Load<GameObject>("Prefabs/EnemyTank"));
@@ -337,10 +346,27 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         var enemyTank = tankObject.AddComponent<EnemyTank>();
         // tankObject.GetComponent<EnemyTank>();
 
-        enemyTank?.Initialize(cellSize, spawnGrid, new Vector2Int(levelData.width, levelData.height), color, levelData);
+        enemyTank?.Initialize(cellSize, spawnGrid, color);
         return enemyTank;
     }
 
+
+    private EnemyTank CreateEnemyTank(float cellSize,Vector2 pos, Color color)
+    {
+        // GameObject tankObject = new GameObject("EnemyTank", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(BoxCollider2D), typeof(Rigidbody2D), typeof(EnemyTank));
+        GameObject tankObject = Instantiate(Resources.Load<GameObject>("Prefabs/EnemyTank"));
+        
+        tankObject.transform.SetParent(levelContainer,false);
+
+        var enemyTank = tankObject.AddComponent<EnemyTank>();
+        // tankObject.GetComponent<EnemyTank>();
+
+        enemyTank?.Initialize(cellSize,pos, color);
+        
+        
+        return enemyTank;
+    }
+    
     private void ClearEnemyTanks()
     {
         foreach (var enemyTank in enemyTanks)
@@ -377,8 +403,8 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
     {
         GameData gameData = new GameData
         {
-            player1Position = playerTank1 != null ? playerTank1.transform.position : Vector2.zero,
-            player2Position = playerTank2 != null ? playerTank2.transform.position : Vector2.zero,
+            player1Position = playerTank1 != null ? playerTank1.GetComponent<RectTransform>().anchoredPosition : Vector2.zero,
+            player2Position = playerTank2 != null ? playerTank2.GetComponent<RectTransform>().anchoredPosition : Vector2.zero,
             gameMode = dataManager.GetGameData().gameMode,
             LevelIndex = levelManager.CurrentLevelIndex
             
@@ -388,7 +414,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         {
             if (enemyTank != null)
             {
-                gameData.enmeyPositions[enemyTanks.IndexOf(enemyTank)] = enemyTank.transform.position;
+                gameData.enmeyPositions[enemyTanks.IndexOf(enemyTank)] = enemyTank.GetComponent<RectTransform>().anchoredPosition;
             }
         }
 
