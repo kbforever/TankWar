@@ -75,7 +75,8 @@ public class LevelManager : MonoBehaviour, IGameFeature
 
     public void LoadNextLevel()
     {
-        LoadLevel(currentLevelIndex + 1);
+        currentLevelIndex++;
+        LoadLevel(currentLevelIndex);
     }
 
     public void RestartLevel()

@@ -8,7 +8,7 @@ public class PlayerTank : MonoBehaviour,ITakeDamage
     [Header("Player Tank")]
     [SerializeField] private float moveSpeed = 3.5f;
     [SerializeField] private Color tankColor = Color.green;
-    [SerializeField] private int maxHealth = 3;
+    [SerializeField] private int maxHealth = 1;
 
 
     private GameFramework.GameFramework Framework=> GameFramework.GameFramework.Instance; 
@@ -212,8 +212,9 @@ public class PlayerTank : MonoBehaviour,ITakeDamage
         {
             currentHealth = 0;
             // 可以在这里添加死亡逻辑
-            Debug.Log($"PlayerTank{playerIndex} died!");
-            Destroy(this.gameObject);
+            
+            Framework.PublishEvent<GameCoreManager.PlayerDieEvent>(new GameCoreManager.PlayerDieEvent(this));
+            
         }
     }
 }

@@ -19,7 +19,7 @@ public class DataManager : MonoBehaviour, IGameFeature
 
     public void Initialize()
     {
-        IsActive = true;
+        // IsActive = true;
         
         currentData = new GameData();
         // Subscribe<GameStateChangedEvent>(OnStateChanged);
@@ -110,8 +110,14 @@ public class DataManager : MonoBehaviour, IGameFeature
 [Serializable]
 public class GameData
 {
-    public int LevelIndex = 0;
+    public  int LevelIndex = 0;
     public int playerScore = 0;
+
+    public int player1Health=3;
+
+    public int player2Health=3;
+
+    public int maxEnemyCount = 20;
     public Vector2 player1Position = Vector2.zero;
 
     public Vector2 player2Position = Vector2.zero;

@@ -215,7 +215,12 @@ public class LevelEditor : MonoBehaviour, IGameFeature
     private void SaveLevel()
     {
         if (levelManager == null || editorLevel == null || string.IsNullOrEmpty(levelNameField)) return;
+
+
         editorLevel.levelName = levelNameField;
+        editorLevel.player1Health = 3; // 可以根据需要设置默认生命值
+        editorLevel.player2Health = 3;  
+        editorLevel.maxEnemyCount = 10; // 可以根据需要设置默认敌人数量
         if (levelManager.SaveLevelToFile(editorLevel, levelNameField))
         {
             isDirty = false;

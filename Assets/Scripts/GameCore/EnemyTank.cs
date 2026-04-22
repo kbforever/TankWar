@@ -281,9 +281,7 @@ public class EnemyTank : MonoBehaviour,ITakeDamage
             currentHealth = 0;
             // 可以在这里添加死亡逻辑
             
-            Framework.GetFeature<GameCoreManager>().enemyTanks.Remove(this);
-            Framework.GetFeature<DataManager>().GetGameData().playerScore +=1;
-            Destroy(this.gameObject);
+            Framework.PublishEvent<GameCoreManager.EnemyDieEvent>(new GameCoreManager.EnemyDieEvent(this));
             
         }
     }

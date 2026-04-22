@@ -90,6 +90,7 @@ namespace GameFramework
         [SerializeField] private bool autoRegisterFeatures = true;
         [SerializeField] private List<IGameFeature> initialFeatures = new List<IGameFeature>();
 
+
         private readonly List<IGameFeature> features = new List<IGameFeature>();
         private readonly EventBus eventBus = new EventBus();
         private readonly Dictionary<Type, object> services = new Dictionary<Type, object>();

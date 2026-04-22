@@ -17,8 +17,19 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
     private PlayerTank playerTank1;
     private PlayerTank playerTank2;
 
+    private readonly int maxAliveEnemyCount = 4;
+
+    private int maxEnemyCount;
+
+    private int Player1Health;
+
+    private int Player2Health;
+
     private float cellSize;
-    private List<Vector2Int> spawnPoints;
+    private List<Vector2Int> spawnEnemyPoints;
+    private List<Vector2Int> spawnPlayerPoints;
+
+    private GameMode currentGameMode;
     private GameData currentGameData=> dataManager.GetGameData();
     private LevelData currentLevelData;
     private readonly List<GameObject> levelCells = new List<GameObject>();
@@ -44,6 +55,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
 
     public void Initialize()
     {
+        IsActive = true;
         levelContainer = transform.Find("levelContainer") as RectTransform;
         dataManager = Framework.GetFeature<DataManager>();
         levelManager = Framework.GetFeature<LevelManager>();
@@ -58,6 +70,56 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
 
 
         Framework.SubscribeEvent<BulletEvent>(CreateBullet);
+        Framework.SubscribeEvent<PlayerDieEvent>(PlayerDie);
+        Framework.SubscribeEvent<EnemyDieEvent>(EnemyDie);
+        
+    }
+
+    private void EnemyDie(EnemyDieEvent enemyDieEvent)
+    {
+        EnemyTank enemyTank = enemyDieEvent.enemyTank;
+        enemyTanks.Remove(enemyTank);
+        Destroy(enemyTank.gameObject);
+        
+        if(maxEnemyCount>0) SpawnEnemyTanks(currentLevelData, cellSize,true);
+        else
+        {
+            if (enemyTanks.Count <= 0)
+            {
+                 // 游戏胜利 如:跳入下一关 or 显示胜利界面
+                Debug.Log("You Win!");
+                dataManager.SetGameData(new GameData()
+                {
+                    gameMode = currentGameMode
+                });
+                Framework.ChangeState(GameState.Loading);
+                levelManager.LoadNextLevel();
+            }
+           
+        }
+    }
+
+    private void PlayerDie(PlayerDieEvent playerDieEvent)
+    {
+        var playerTank = playerDieEvent.playerTank;
+        if (playerTank == playerTank1)
+        {
+            Player1Health--;
+            if(Player1Health>0) playerTank1 = CreatePlayerTank(currentLevelData, cellSize, spawnPlayerPoints[0], Color.green, 1);
+        }
+        if(playerTank == playerTank2)
+        {
+            Player2Health--;
+            if(Player2Health>0) playerTank2 = CreatePlayerTank(currentLevelData, cellSize, spawnPlayerPoints[1], Color.blue, 2);
+        }
+
+        Destroy(playerTank.gameObject);
+        if(Player1Health<=0 && Player2Health<=0)
+        {
+            
+            Debug.LogError("Game Over");
+            // Framework.ChangeState(GameState.GameOver);
+        }
 
     }
 
@@ -82,7 +144,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
     {
         if (nextState == GameState.Playing)
         {
-
+            currentGameMode = currentGameData.gameMode;
             if(previousState == GameState.Paused)
             {
                 Time.timeScale = 1f;
@@ -94,6 +156,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
             {
                 Framework.ChangeState(GameState.Loading);
                 levelManager.LoadLevel(currentGameData.LevelIndex);
+                return;
                 
             }
             if(levelManager.CurrentLevelData != null)
@@ -102,20 +165,36 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
                 currentLevelData = levelManager.CurrentLevelData;
 
                 
-
+                
                 if(currentGameData.enmeyPositions != null)
                 {
                     RenderLevel(currentLevelData,false);
+
+                   
+                    Player1Health = currentGameData.player1Health;
+                    Player2Health = currentGameData.gameMode==GameMode.SinglePlayer? 0 : currentGameData.player2Health;
+                    maxEnemyCount = currentGameData.maxEnemyCount;
                     // 恢复玩家位置
                     if (playerTank1 != null)
                     {
                         playerTank1.GetComponent<RectTransform>().anchoredPosition = currentGameData.player1Position;
+                        if(Player1Health<=0)
+                        {
+                            Destroy(playerTank1.gameObject);
+                            playerTank1 = null;
+                        }
                     }
                     if (playerTank2 != null)
                     {
                         playerTank2.GetComponent<RectTransform>().anchoredPosition = currentGameData.player2Position;
+                        if(Player2Health<=0)
+                        {
+                            Destroy(playerTank2.gameObject);
+                            playerTank2 = null;
+                        }
                     }
-
+                    
+                    
                     enemyTanks.Clear();
                     // 恢复敌人位置
                     for (int i = 0; i < currentGameData.enmeyPositions.Length; i++)
@@ -129,7 +208,10 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
                 else
                 {
                     RenderLevel(currentLevelData);
+                    UpdateGameData();
                 }
+
+                
             }
 
             
@@ -180,6 +262,10 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         ClearPlayerTank();
         ClearBoundaryObjects();
         ClearEnemyTanks();
+
+        this.Player1Health= levelData.player1Health;
+        this.Player2Health= levelData.player2Health;
+        this.maxEnemyCount = levelData.maxEnemyCount;
         float cellSpaceSize = 5f; // 每个格子碰撞器往里收缩的大小
         Vector2 containerSize = levelContainer.rect.size;
         if (containerSize == Vector2.zero && levelContainer.parent is RectTransform parentRect)
@@ -195,13 +281,23 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         float cellWidth = containerSize.x / levelData.width;
         float cellHeight = containerSize.y / levelData.height;
         cellSize = Mathf.Min(cellWidth, cellHeight);
-        Debug.LogError(cellSize);
         // levelContainer.sizeDelta = new Vector2(cellSize * levelData.width, cellSize * levelData.height);
+
+        spawnEnemyPoints = new List<Vector2Int>();
+        spawnPlayerPoints = new List<Vector2Int>();
 
         for (int y = 0; y < levelData.height; y++)
         {
             for (int x = 0; x < levelData.width; x++)
             {
+                if (levelData.GetTile(x, y) == LevelTileType.EnemySpawn)
+                {
+                    spawnEnemyPoints.Add(new Vector2Int(x, y));
+                }
+                if (levelData.GetTile(x, y) == LevelTileType.PlayerSpawn)
+                {
+                    spawnPlayerPoints.Add(new Vector2Int(x, y));
+                }
                 var tileType = levelData.GetTile(x, y);
                 var cell = CreateCell(tileType);
                 cell.name = $"Tile_{x}_{y}";
@@ -226,50 +322,39 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
 
         CreateBoundary(levelData, cellSize);
         SpawnPlayerTank(levelData, cellSize);
-        if(GenEnemy) InitEnemyTanks(levelData, cellSize);
+        if(GenEnemy) SpawnEnemyTanks(levelData, cellSize);
     }
 
     private void SpawnPlayerTank(LevelData levelData, float cellSize)
     {
         if (levelContainer == null || levelData == null || dataManager == null) return;
 
-        var gameMode = dataManager.GetGameData().gameMode;
+        var gameMode = currentGameMode;
 
-        // 找到所有玩家出生点
-        var spawnPoints = new List<Vector2Int>();
-        for (int y = 0; y < levelData.height; y++)
-        {
-            for (int x = 0; x < levelData.width; x++)
-            {
-                if (levelData.GetTile(x, y) == LevelTileType.PlayerSpawn)
-                {
-                    spawnPoints.Add(new Vector2Int(x, y));
-                }
-            }
-        }
+        
 
         // 如果没有找到，使用默认位置
-        if (spawnPoints.Count == 0)
+        if (spawnPlayerPoints.Count == 0)
         {
-            spawnPoints.Add(new Vector2Int(levelData.width / 2, levelData.height / 2));
+            spawnPlayerPoints.Add(new Vector2Int(levelData.width / 2, levelData.height / 2));
         }
 
         // 生成玩家坦克
-        if (gameMode == GameMode.SinglePlayer && spawnPoints.Count >= 1)
+        if (gameMode == GameMode.SinglePlayer && spawnPlayerPoints.Count >= 1)
         {
-            playerTank1 = CreatePlayerTank(levelData, cellSize, spawnPoints[0], Color.green, 1);
+            playerTank1 = CreatePlayerTank(levelData, cellSize, spawnPlayerPoints[0], Color.green, 1);
         }
         else if (gameMode == GameMode.TwoPlayer)
         {
-            playerTank1 = CreatePlayerTank(levelData, cellSize, spawnPoints[0], Color.green, 1);
-            if (spawnPoints.Count > 1)
+            playerTank1 = CreatePlayerTank(levelData, cellSize, spawnPlayerPoints[0], Color.green, 1);
+            if (spawnPlayerPoints.Count > 1)
             {
-                playerTank2 = CreatePlayerTank(levelData, cellSize, spawnPoints[1], Color.blue, 2);
+                playerTank2 = CreatePlayerTank(levelData, cellSize, spawnPlayerPoints[1], Color.blue, 2);
             }
             else
             {
                 // 如果只有一个出生点，第二个玩家放在附近
-                var pos2 = spawnPoints[0] + Vector2Int.right;
+                var pos2 = spawnPlayerPoints[0] + Vector2Int.right;
                 if (levelData.IsPositionValid(pos2.x, pos2.y))
                 {
                     playerTank2 = CreatePlayerTank(levelData, cellSize, pos2, Color.blue, 2);
@@ -310,28 +395,29 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         }
     }
 
-    private void InitEnemyTanks(LevelData levelData, float cellSize)
+    private void SpawnEnemyTanks(LevelData levelData, float cellSize,bool GenOneEnmey = false)
     {
         if (levelContainer == null || levelData == null) return;
 
-        ClearEnemyTanks();
+        // ClearEnemyTanks();
 
         // 找到所有敌方出生点
-        spawnPoints = new List<Vector2Int>();
-        for (int y = 0; y < levelData.height; y++)
+        
+        // 生成敌方坦克
+        // 每个出生地都生成
+        if (!GenOneEnmey)
         {
-            for (int x = 0; x < levelData.width; x++)
+            foreach (var spawnPoint in spawnEnemyPoints)
             {
-                if (levelData.GetTile(x, y) == LevelTileType.EnemySpawn)
-                {
-                    spawnPoints.Add(new Vector2Int(x, y));
-                }
+                var enemyTank = CreateEnemyTank(cellSize, spawnPoint, Color.red);
+                enemyTanks.Add(enemyTank);
             }
         }
-        // 生成敌方坦克
-        foreach (var spawnPoint in spawnPoints)
+        // 随机一个出生地生成一个敌人
+        else
         {
-            var enemyTank = CreateEnemyTank(cellSize, spawnPoint, Color.red);
+            var randomSpawnPoint = spawnEnemyPoints[Random.Range(0, spawnEnemyPoints.Count)];
+            var enemyTank = CreateEnemyTank(cellSize, randomSpawnPoint, Color.red);
             enemyTanks.Add(enemyTank);
         }
     }
@@ -347,6 +433,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         // tankObject.GetComponent<EnemyTank>();
 
         enemyTank?.Initialize(cellSize, spawnGrid, color);
+        maxEnemyCount--;
         return enemyTank;
     }
 
@@ -406,7 +493,10 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
             player1Position = playerTank1 != null ? playerTank1.GetComponent<RectTransform>().anchoredPosition : Vector2.zero,
             player2Position = playerTank2 != null ? playerTank2.GetComponent<RectTransform>().anchoredPosition : Vector2.zero,
             gameMode = dataManager.GetGameData().gameMode,
-            LevelIndex = levelManager.CurrentLevelIndex
+            LevelIndex = levelManager.CurrentLevelIndex,
+            player1Health = Player1Health,
+            player2Health = Player2Health,
+            maxEnemyCount = maxEnemyCount
             
         };
         gameData.enmeyPositions = new Vector2[enemyTanks.Count];
@@ -537,5 +627,22 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         boundaryObjects.Clear();
     }
 
-  
+    
+    public sealed class PlayerDieEvent: GameEvent
+    {
+        public PlayerTank playerTank;
+        public PlayerDieEvent(PlayerTank playerTank)
+        {
+            this.playerTank = playerTank;
+        }
+    }
+
+    public sealed class EnemyDieEvent: GameEvent
+    {
+        public EnemyTank enemyTank;
+        public EnemyDieEvent(EnemyTank enemyTank)
+        {
+            this.enemyTank = enemyTank;
+        }
+    }
 }

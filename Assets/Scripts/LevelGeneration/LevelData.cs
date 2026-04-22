@@ -23,6 +23,11 @@ namespace LevelGeneration
         public string levelName;
         public int width;
         public int height;
+
+        public int player1Health;
+        public int player2Health;
+        public int maxEnemyCount;
+
         public LevelTileType[] tiles;
         public Vector2Int playerSpawn;
         public Vector2Int basePosition;
