@@ -342,11 +342,11 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         // 生成玩家坦克
         if (gameMode == GameMode.SinglePlayer && spawnPlayerPoints.Count >= 1)
         {
-            playerTank1 = CreatePlayerTank(levelData, cellSize, spawnPlayerPoints[0], Color.green, 1);
+            playerTank1 = CreatePlayerTank(levelData, cellSize, spawnPlayerPoints[0], Color.white, 1);
         }
         else if (gameMode == GameMode.TwoPlayer)
         {
-            playerTank1 = CreatePlayerTank(levelData, cellSize, spawnPlayerPoints[0], Color.green, 1);
+            playerTank1 = CreatePlayerTank(levelData, cellSize, spawnPlayerPoints[0], Color.white, 1);
             if (spawnPlayerPoints.Count > 1)
             {
                 playerTank2 = CreatePlayerTank(levelData, cellSize, spawnPlayerPoints[1], Color.blue, 2);
@@ -366,11 +366,11 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
     private PlayerTank CreatePlayerTank(LevelData levelData, float cellSize, Vector2Int spawnGrid, Color color, int playerIndex)
     {
         // GameObject tankObject = new GameObject($"PlayerTank{playerIndex}", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(BoxCollider2D), typeof(Rigidbody2D), typeof(PlayerTank));
-        GameObject tankObject = Instantiate(Resources.Load<GameObject>("Prefabs/PlayerTank"));
+        GameObject tankObject = Instantiate(Resources.Load<GameObject>($"Prefabs/PlayerTank{playerIndex}"));
         tankObject.transform.SetParent(levelContainer, false);
-
+        
         var playerTank = tankObject.AddComponent<PlayerTank>();
-        playerTank?.Initialize(cellSize, spawnGrid, new Vector2Int(levelData.width, levelData.height), color, playerIndex, levelData);
+        playerTank?.Initialize(cellSize, spawnGrid, new Vector2Int(levelData.width, levelData.height), Color.white, playerIndex, levelData);
         return playerTank;
     }
 
@@ -432,7 +432,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         var enemyTank = tankObject.AddComponent<EnemyTank>();
         // tankObject.GetComponent<EnemyTank>();
 
-        enemyTank?.Initialize(cellSize, spawnGrid, color);
+        enemyTank?.Initialize(cellSize, spawnGrid, Color.white);
         maxEnemyCount--;
         return enemyTank;
     }
@@ -448,7 +448,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         var enemyTank = tankObject.AddComponent<EnemyTank>();
         // tankObject.GetComponent<EnemyTank>();
 
-        enemyTank?.Initialize(cellSize,pos, color);
+        enemyTank?.Initialize(cellSize,pos, Color.white);
         
         
         return enemyTank;

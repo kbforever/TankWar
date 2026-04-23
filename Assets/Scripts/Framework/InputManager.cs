@@ -3,21 +3,24 @@ using System.Collections.Generic;
 using UnityEngine;
 using GameFramework;
 
+
 [DisallowMultipleComponent]
 public class InputManager : MonoBehaviour, IGameFeature
 {
     [Header("输入配置")]
     [SerializeField] private InputConfig defaultConfig;
-
     private Dictionary<string, KeyCode> keyMappings = new Dictionary<string, KeyCode>();
     private Dictionary<string, bool> axisStates = new Dictionary<string, bool>();
 
+    Vector2 inputdir;
     public bool IsActive { get; private set; }
     protected GameFramework.GameFramework Framework => GameFramework.GameFramework.Instance;
 
     public void Initialize()
     {
         IsActive = true;
+ 
+
         if (defaultConfig != null)
         {
             LoadConfig(defaultConfig);
@@ -31,6 +34,8 @@ public class InputManager : MonoBehaviour, IGameFeature
             keyMappings["MoveRight"] = KeyCode.D;
             keyMappings["Jump"] = KeyCode.Space;
             keyMappings["Attack"] = KeyCode.J;
+            keyMappings["Pause"] = KeyCode.P;
+
 
             // 第二个玩家映射
             keyMappings["P2MoveUp"] = KeyCode.UpArrow;

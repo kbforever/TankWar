@@ -15,7 +15,6 @@ public class EnemyTank : MonoBehaviour,ITakeDamage
 {
     [Header("Enemy Tank")]
     [SerializeField] private float moveSpeed = 3f;
-    [SerializeField] private Color tankColor = Color.red;
     [SerializeField] private float changeDirectionTime = 2f;
     [SerializeField] private int maxHealth = 1;
     [SerializeField] private EnemyTankType tankType = EnemyTankType.Basic;
