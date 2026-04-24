@@ -78,6 +78,7 @@ public class UIFramework : MonoBehaviour, IGameFeature
         }
         else if (nextState == GameState.Paused)
         {
+            
             ShowPanel("PausePanel");
         }
         else if (nextState == GameState.GameOver)

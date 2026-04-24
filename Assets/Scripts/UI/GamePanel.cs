@@ -48,13 +48,22 @@ public class GamePanel : UIPanel
 
     void Update()
     {
-        if (Framework.CurrentState == GameState.Playing)
-        {
-            if (inputManager.GetButtonDown("Pause"))
-            {
-                OnPauseGame();
-            }
-        }
+        // if (Framework.CurrentState == GameState.Playing)
+        // {
+        //     // if (inputManager.GetButtonDown("Pause"))
+        //     if (inputManager.IsPaused)
+        //     {
+        //         OnPauseGame();
+        //     }
+        // }
+        // if (Framework.CurrentState == GameState.Paused)
+        // {
+        //     if (!inputManager.IsPaused)
+        //     {
+        //         Framework.ChangeState(GameState.Playing);
+        //     }
+        // }
+        
     }
 
     public override void OnShow()

@@ -1,6 +1,7 @@
 using UnityEngine;
 using LevelGeneration;
 using Unity.VisualScripting;
+using System;
 
 
 public class PlayerTank : MonoBehaviour,ITakeDamage
@@ -27,7 +28,8 @@ public class PlayerTank : MonoBehaviour,ITakeDamage
     private bool initialized;
     private int currentHealth;
 
-
+    private bool IsAttacking;
+    
     private void Awake()
     {
         
@@ -35,18 +37,15 @@ public class PlayerTank : MonoBehaviour,ITakeDamage
 
     private void Start()
     {
-        inputManager = Framework?.GetFeature<InputManager>();
-        if (inputManager == null)
-        {
-            Debug.LogWarning($"PlayerTank{playerIndex}: InputManager not found. Tank input will be disabled.");
-        }
+        
+        
     }
 
     private void Update()
     {
         if (!initialized || inputManager == null) return;
         HandleMovement();
-        Attack();
+        Attack();     
         
     }
 
@@ -69,6 +68,11 @@ public class PlayerTank : MonoBehaviour,ITakeDamage
     public void Initialize(float tileSize, Vector2Int spawnGridPosition, Vector2Int gridSize, Color tankColor, int playerIndex = 1, LevelData levelData = null)
     {
 
+        inputManager = Framework?.GetFeature<InputManager>();
+        if (inputManager == null)
+        {
+            Debug.LogWarning($"PlayerTank{playerIndex}: InputManager not found. Tank input will be disabled.");
+        }
         rectTransform = GetComponent<RectTransform>();
         rb2d = GetComponent<Rigidbody2D>();
         boxCollider = GetComponent<BoxCollider2D>();
@@ -129,8 +133,14 @@ public class PlayerTank : MonoBehaviour,ITakeDamage
             image.color = tankColor;
         }
 
+        inputManager.AcitonByName["Player"+playerIndex].FindAction("Attack").started+=ctx=>IsAttacking=true;
+        inputManager.AcitonByName["Player"+playerIndex].FindAction("Attack").canceled+=ctx=>IsAttacking=false;
+
+
         initialized = true;
     }
+
+
 
     private void HandleMovement()
     {
@@ -139,7 +149,9 @@ public class PlayerTank : MonoBehaviour,ITakeDamage
         string leftKey = playerIndex == 1 ? "MoveLeft" : "P2MoveLeft";
         string rightKey = playerIndex == 1 ? "MoveRight" : "P2MoveRight";
 
-        Vector2 inputDirection = inputManager.GetVector2(upKey, downKey, leftKey, rightKey);
+        // Vector2 inputDirection = inputManager.GetVector2(upKey, downKey, leftKey, rightKey);
+        Vector2 inputDirection = inputManager.AcitonByName["Player"+playerIndex].FindAction("Move").ReadValue<Vector2>();
+
         if (inputDirection.sqrMagnitude < 0.001f)
         {
             currentVelocity = Vector2.zero;
@@ -183,7 +195,9 @@ public class PlayerTank : MonoBehaviour,ITakeDamage
         // 这里可以实现攻击逻辑，例如发射子弹等
         string attackKey = playerIndex == 1 ? "Attack" : "P2Attack";
         lastAttackTime -= Time.deltaTime;
-        if (inputManager.GetButton(attackKey) && lastAttackTime <= 0f)
+        // if (inputManager.GetButton(attackKey) && lastAttackTime <= 0f)
+        if (IsAttacking && lastAttackTime <= 0f)
+
         {
             lastAttackTime = attackCooldown;
             Framework.PublishEvent<GameCoreManager.BulletEvent>(new GameCoreManager.BulletEvent(FirePos));

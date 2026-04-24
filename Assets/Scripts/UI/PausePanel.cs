@@ -4,6 +4,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using GameFramework;
+using UnityEngine.EventSystems;
+
+
 public class PausePanel : UIPanel
 {
     private Button BackGame;
@@ -26,6 +29,7 @@ public class PausePanel : UIPanel
         {
             BackGame.onClick.AddListener(OnBackGame);
         }
+       
 
     }
 
@@ -40,6 +44,12 @@ public class PausePanel : UIPanel
         Framework.ChangeState(GameState.MainMenu);
     }
 
+    public override void OnShow()
+    {
+        base.OnShow();
+        // EventSystem.current.firstSelectedGameObject=BackGame.gameObject;
+        EventSystem.current.SetSelectedGameObject(BackGame.gameObject);
+    }
 
 
 }

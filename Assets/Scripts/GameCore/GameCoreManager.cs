@@ -12,6 +12,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
 
     private GameFramework.GameFramework Framework=>GameFramework.GameFramework.Instance;
     private DataManager dataManager;
+    private InputManager inputManager;
     private LevelManager levelManager;
     private RectTransform levelContainer;
     private PlayerTank playerTank1;
@@ -59,6 +60,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         levelContainer = transform.Find("levelContainer") as RectTransform;
         dataManager = Framework.GetFeature<DataManager>();
         levelManager = Framework.GetFeature<LevelManager>();
+        inputManager = Framework.GetFeature<InputManager>();
         currentLevelData = null;
         if (levelManager != null)
         {
@@ -147,6 +149,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
             currentGameMode = currentGameData.gameMode;
             if(previousState == GameState.Paused)
             {
+                inputManager.EnableMaps();
                 Time.timeScale = 1f;
                 return;
             }
@@ -162,6 +165,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
             if(levelManager.CurrentLevelData != null)
             {
                 Time.timeScale = 1f;
+                inputManager.EnableMaps();
                 currentLevelData = levelManager.CurrentLevelData;
 
                 
@@ -222,11 +226,13 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         else if (nextState == GameState.Paused)
         {
             Time.timeScale = 0f;
+            inputManager.DisableMaps();
             UpdateGameData();
         }
         else if (nextState == GameState.GameOver)
         {
             Time.timeScale = 0f;
+            inputManager.DisableMaps();
             UpdateGameData();
             
         }

@@ -2,10 +2,11 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using GameFramework;
+using UnityEngine.InputSystem;
 
 
 [DisallowMultipleComponent]
-public class InputManager : MonoBehaviour, IGameFeature
+public partial class InputManager : MonoBehaviour, IGameFeature
 {
     [Header("输入配置")]
     [SerializeField] private InputConfig defaultConfig;
@@ -18,8 +19,21 @@ public class InputManager : MonoBehaviour, IGameFeature
 
     public void Initialize()
     {
+        // new system
+        
+        inputActions = new PlayerContorller();
+        AcitonByName["Player1"] = inputActions.Player1;
+        AcitonByName["Player2"] = inputActions.Player2;
+        
+        isPaused = false;
+        //
+
+        // inputActions.Player1.Pause.started+=ctx=>isPaused = !isPaused;
+
+
         IsActive = true;
  
+        
 
         if (defaultConfig != null)
         {
@@ -47,12 +61,60 @@ public class InputManager : MonoBehaviour, IGameFeature
         }
     }
 
+
     public void FeatureUpdate()
     {
-        // 更新轴状态
-        foreach (var key in keyMappings.Keys)
+        // // 更新轴状态
+        // foreach (var key in keyMappings.Keys)
+        // {
+        //     axisStates[key] = Input.GetKey(keyMappings[key]);
+        // }
+        
+        if (Keyboard.current.pKey.wasPressedThisFrame)
         {
-            axisStates[key] = Input.GetKey(keyMappings[key]);
+            if (isPaused)
+            {
+                Framework.ChangeState(GameState.Paused);
+            }
+            else
+            {
+                Framework.ChangeState(GameState.Playing);
+            }
+            isPaused = !isPaused;
+
+        }
+    }
+
+
+
+    public void EnableMaps(GameMode gameMode)
+    {
+        if(gameMode == GameMode.SinglePlayer)
+        {
+            inputActions.Player1.Enable();
+            inputActions.Player2.Disable();
+        }
+        else if(gameMode == GameMode.TwoPlayer)
+        {
+            inputActions.Player1.Enable();
+            inputActions.Player2.Enable();
+        }
+        
+    }
+
+    public void EnableMaps()
+    {
+        foreach(var actions in AcitonByName.Values)
+        {
+            actions .Enable();
+        }
+    }
+
+    public void DisableMaps()
+    {
+        foreach(var actions in AcitonByName.Values)
+        {
+            actions .Disable();
         }
     }
 
@@ -64,6 +126,8 @@ public class InputManager : MonoBehaviour, IGameFeature
     public void Shutdown()
     {
         IsActive = false;
+        inputActions.Player1.Disable();
+        inputActions.Player2.Disable();
     }
 
     public void LoadConfig(InputConfig config)
