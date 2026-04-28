@@ -18,7 +18,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
     private PlayerTank playerTank1;
     private PlayerTank playerTank2;
 
-    private readonly int maxAliveEnemyCount = 4;
+
 
     private int maxEnemyCount;
 
@@ -116,11 +116,12 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         }
 
         Destroy(playerTank.gameObject);
+        Debug.LogError(Player1Health+"_"+Player2Health);
         if(Player1Health<=0 && Player2Health<=0)
         {
             
             Debug.LogError("Game Over");
-            // Framework.ChangeState(GameState.GameOver);
+            Framework.ChangeState(GameState.GameOver);
         }
 
     }
@@ -170,7 +171,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
 
                 
                 
-                if(currentGameData.enmeyPositions != null)
+                if(currentGameData.enmeyPositions != null && currentGameData.player1Health>0)
                 {
                     RenderLevel(currentLevelData,false);
 
@@ -212,6 +213,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
                 else
                 {
                     RenderLevel(currentLevelData);
+                    
                     UpdateGameData();
                 }
 
@@ -236,6 +238,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
             UpdateGameData();
             
         }
+        
         
         
     }
@@ -348,6 +351,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         // 生成玩家坦克
         if (gameMode == GameMode.SinglePlayer && spawnPlayerPoints.Count >= 1)
         {
+            this.Player2Health=0;
             playerTank1 = CreatePlayerTank(levelData, cellSize, spawnPlayerPoints[0], Color.white, 1);
         }
         else if (gameMode == GameMode.TwoPlayer)
@@ -372,7 +376,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
     private PlayerTank CreatePlayerTank(LevelData levelData, float cellSize, Vector2Int spawnGrid, Color color, int playerIndex)
     {
         // GameObject tankObject = new GameObject($"PlayerTank{playerIndex}", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(BoxCollider2D), typeof(Rigidbody2D), typeof(PlayerTank));
-        GameObject tankObject = Instantiate(Resources.Load<GameObject>($"Prefabs/PlayerTank{playerIndex}"));
+        GameObject tankObject = Instantiate(Resources.Load<GameObject>($"Prefabs/Maps/PlayerTank{playerIndex}"));
         tankObject.transform.SetParent(levelContainer, false);
         
         var playerTank = tankObject.AddComponent<PlayerTank>();
@@ -431,7 +435,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
     private EnemyTank CreateEnemyTank(float cellSize, Vector2Int spawnGrid, Color color)
     {
         // GameObject tankObject = new GameObject("EnemyTank", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(BoxCollider2D), typeof(Rigidbody2D), typeof(EnemyTank));
-        GameObject tankObject = Instantiate(Resources.Load<GameObject>("Prefabs/EnemyTank"));
+        GameObject tankObject = Instantiate(Resources.Load<GameObject>("Prefabs/Maps/EnemyTank"));
         
         tankObject.transform.SetParent(levelContainer, false);
 
@@ -447,7 +451,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
     private EnemyTank CreateEnemyTank(float cellSize,Vector2 pos, Color color)
     {
         // GameObject tankObject = new GameObject("EnemyTank", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(BoxCollider2D), typeof(Rigidbody2D), typeof(EnemyTank));
-        GameObject tankObject = Instantiate(Resources.Load<GameObject>("Prefabs/EnemyTank"));
+        GameObject tankObject = Instantiate(Resources.Load<GameObject>("Prefabs/Maps/EnemyTank"));
         
         tankObject.transform.SetParent(levelContainer,false);
 
@@ -470,11 +474,19 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
             }
         }
         enemyTanks.Clear();
+       
     }
 
     private GameObject CreateCell(LevelTileType tileType)
     {
-        var cell = new GameObject("TileCell", typeof(RectTransform), typeof(Image));
+        // var cell = new GameObject("TileCell", typeof(RectTransform), typeof(Image));
+        var t = "Prefabs/Maps/"+tileType.ToString();
+        if(tileType==LevelTileType.PlayerSpawn || tileType == LevelTileType.EnemySpawn)
+        {
+            return CreateCell(LevelTileType.Empty);
+        }
+        var cell = Instantiate(Resources.Load<GameObject>("Prefabs/Maps/"+tileType.ToString()));
+
         var image = cell.GetComponent<Image>();
         image.color = GetColorForTile(tileType);
 
@@ -505,7 +517,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
             maxEnemyCount = maxEnemyCount
             
         };
-        gameData.enmeyPositions = new Vector2[enemyTanks.Count];
+        gameData.enmeyPositions = enemyTanks!=null? new Vector2[enemyTanks.Count] : null;
         foreach (var enemyTank in enemyTanks)
         {
             if (enemyTank != null)
@@ -530,14 +542,14 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
 
     private void CreateBullet(GameObject parent)
     {
-        GameObject bulletPrefab = Resources.Load<GameObject>("Prefabs/Bullet");
+        GameObject bulletPrefab = Resources.Load<GameObject>("Prefabs/Maps/Bullet");
         
 
         GameObject bullet = Instantiate(bulletPrefab,parent.transform.position,Quaternion.identity);
         bullet.transform.SetParent(levelContainer);
         var Bullet = bullet.AddComponent<Bullet>();
         Bullet.movedir = parent.transform.up;
-        bullet.tag = parent.tag;
+        Bullet.selfTag = parent.tag;
         
 
     }
@@ -591,6 +603,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         boundary.transform.SetParent(levelContainer, false);
         boundary.layer = levelContainer.gameObject.layer;
 
+
         var rectTransform = boundary.GetComponent<RectTransform>();
         rectTransform.anchorMin = new Vector2(0, 0);
         rectTransform.anchorMax = new Vector2(0, 0);
@@ -603,7 +616,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         collider.offset = size / 2f;
 
         var rigidbody = boundary.GetComponent<Rigidbody2D>();
-        rigidbody.bodyType = RigidbodyType2D.Static;
+        rigidbody.bodyType = RigidbodyType2D.Static; 
         rigidbody.simulated = true;
 
         boundaryObjects.Add(boundary);
@@ -613,6 +626,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
     {
         foreach (var cell in levelCells)
         {
+
             if (cell != null)
             {
                 Destroy(cell);

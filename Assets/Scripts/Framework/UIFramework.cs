@@ -52,6 +52,7 @@ public class UIFramework : MonoBehaviour, IGameFeature
         LoadAndRegisterPanel<MainMenuPanel>("MainMenuPanel");
         LoadAndRegisterPanel<GamePanel>("GamePanel");
         LoadAndRegisterPanel<PausePanel>("PausePanel");
+        LoadAndRegisterPanel<GameOverPanel>("GameOverPanel");
         Subscribe<GameStateChangedEvent>(OnStateChanged);
     }
 
@@ -118,7 +119,7 @@ public class UIFramework : MonoBehaviour, IGameFeature
 
     public void LoadAndRegisterPanel<T>(string panelName) where T : UIPanel
     {
-        string prefabPath = "Prefabs/" + panelName;
+        string prefabPath = "Prefabs/UI/" + typeof(T).Name;
         GameObject prefab = Resources.Load<GameObject>(prefabPath);
         if (prefab != null)
         {

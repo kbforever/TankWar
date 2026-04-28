@@ -1,6 +1,8 @@
 using UnityEngine;
 using LevelGeneration;
 using Unity.VisualScripting;
+using UnityEditor.UIElements;
+using System.Net.NetworkInformation;
 
 
 public enum EnemyTankType
@@ -46,17 +48,125 @@ public class EnemyTank : MonoBehaviour,ITakeDamage
     private void Update()
     {
         if (!initialized) return;
-        HandleMovement();
+        // HandleMovement();
         Attack();
     }
 
+    bool shouldMove;
+    Vector2 boxSize;
+
+    float checkRadius;
     private void FixedUpdate()
     {
+
+        
         if (!initialized || rb2d == null) return;
-        rb2d.velocity = currentVelocity;
-        currentPosition = rb2d.position;
+        // rb2d.velocity = currentVelocity;
+        // currentPosition = rb2d.position;
+        
+         
+        CheckMove();
+        // 3. 控制刚体速度
+        if (shouldMove)
+        {
+            currentVelocity = moveSpeed*tileSize*currentDirection;
+            rb2d.velocity = currentVelocity;
+            
+            float targetAngle = Mathf.Atan2(currentDirection.y, currentDirection.x) * Mathf.Rad2Deg-90;
+            if (currentVelocity != Vector2.zero)
+            {
+                Quaternion targetRotation = Quaternion.Euler(0, 0, targetAngle);
+                rectTransform.rotation = targetRotation;  
+            }
+        }
+        else
+        {
+            // 停止移动：将速度归零，也可以保留其他轴的速度（比如下落）
+            rb2d.velocity = Vector2.zero;
+        }
+
+        // rb2d.MovePosition(rb2d.position+currentVelocity*Time.fixedDeltaTime);
+        // currentPosition = rb2d.position;
+
+        directionTimer -= Time.fixedDeltaTime;
+        if (directionTimer <= 0)
+        {
+            ChangeDirection(); 
+        }
     
     }
+
+
+    private void CheckMove()
+    {
+        RaycastHit2D hit = Physics2D.CircleCast(
+            (Vector2)FirePos.transform.position,          // 盒子的中心点
+            checkRadius,                    
+            Vector2.zero,                         // 探测方向
+            0             // 障碍物层
+        );
+        
+
+       
+        
+        if (hit.collider!=null )
+        {
+            if(hit.collider.CompareTag("Bullet") || hit.collider.gameObject==this.gameObject) shouldMove = true;
+            else
+            {
+                Debug.Log(hit.collider.name);
+                // 碰到了障碍物 → 停止
+                shouldMove = false;
+            }
+            
+            // 调试：在Scene视图中看到红色射线
+            // Debug.DrawRay(FirePos.transform.position, currentDirection.normalized * 1.5f, Color.red);
+        }
+        else
+        {
+            shouldMove = true;
+            
+            // Debug.DrawRay(FirePos.transform.position, currentDirection.normalized * 1.5f, Color.green);
+        }
+
+        var start =(Vector2)FirePos.transform.position;
+        var end = start;
+        DrawCircleCastDebug(start,end);
+    }
+
+    private void DrawCircleCastDebug(Vector2 origin,Vector2 end)
+    {
+        Vector2 dir = currentDirection;
+        
+       
+        Color hitColor = shouldMove ? Color.green : Color.red;
+
+        // 绘制起点圆
+        DrawWireCircle(origin, checkRadius, hitColor, 24);
+        // 绘制终点圆
+        DrawWireCircle(end, checkRadius, hitColor, 24);
+        // 绘制两条切线（连接两个圆的上下最外点）
+        Vector2 upOffset = new Vector2(0, checkRadius);
+        Vector2 downOffset = new Vector2(0, -checkRadius);
+        // 注意：这里的上下是相对于世界坐标系，如果需要随物体旋转可以调整，但通常不需要
+        Debug.DrawLine(origin + upOffset, end + upOffset, hitColor);
+        Debug.DrawLine(origin + downOffset, end + downOffset, hitColor);
+    }
+
+    // 辅助方法：用线段画圆（世界空间）
+    private void DrawWireCircle(Vector2 center, float radius, Color color, int segments)
+    {
+        float angleStep = 360f / segments;
+        Vector2 prevPoint = center + new Vector2(radius, 0);
+        for (int i = 1; i <= segments; i++)
+        {
+            float angle = i * angleStep * Mathf.Deg2Rad;
+            Vector2 newPoint = center + new Vector2(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius);
+            Debug.DrawLine(prevPoint, newPoint, color);
+            prevPoint = newPoint;
+        }
+    }
+
 
     public void Initialize(float tileSize, Vector2Int spawnGridPosition, Color tankColor)
     {
@@ -85,6 +195,8 @@ public class EnemyTank : MonoBehaviour,ITakeDamage
 
         this.currentHealth = this.maxHealth;
 
+        this.checkRadius = this.tileSize/10f;
+
         if (rb2d != null)
         {
             rb2d.gravityScale = 0f;
@@ -92,6 +204,8 @@ public class EnemyTank : MonoBehaviour,ITakeDamage
             rb2d.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
             rb2d.interpolation = RigidbodyInterpolation2D.Interpolate;
             rb2d.velocity = Vector2.zero;
+           
+            
         }
 
         if (boxCollider != null)
@@ -197,32 +311,25 @@ public class EnemyTank : MonoBehaviour,ITakeDamage
     
     private void HandleMovement()
     {
-        directionTimer -= Time.deltaTime;
-        if (directionTimer <= 0)
-        {
-            ChangeDirection();
-        }
-
+        
+        
         Vector2 desiredVelocity = currentDirection * moveSpeed * tileSize;
         Vector2 predictedPosition = currentPosition + desiredVelocity * Time.deltaTime;
 
         
-
+       
         int newGridX = Mathf.RoundToInt(predictedPosition.x / tileSize);
         int newGridY = Mathf.RoundToInt(predictedPosition.y / tileSize);
 
         
 
 
-        float targetAngle = Mathf.Atan2(currentDirection.y, currentDirection.x) * Mathf.Rad2Deg-90;
-        if (currentVelocity != Vector2.zero)
-        {
-            Quaternion targetRotation = Quaternion.Euler(0, 0, targetAngle);
-            rectTransform.rotation = targetRotation;  
-        }
+        
 
         currentVelocity = desiredVelocity;
       
+  
+        
     }
 
     private float attackCooldown = 1f;

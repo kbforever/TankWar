@@ -12,7 +12,7 @@ namespace GameFramework
         MainMenu,
         Playing,
         Paused,
-        GameOver
+        GameOver,
     }
 
     public abstract class GameEvent { }

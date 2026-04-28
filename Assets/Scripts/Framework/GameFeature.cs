@@ -6,7 +6,7 @@ namespace GameFramework
     public interface IGameFeature
     {
         bool IsActive { get; }
-
+        
         void Initialize();
         void FeatureUpdate();
         void FeatureFixedUpdate();

@@ -52,7 +52,22 @@ public class PlayerTank : MonoBehaviour,ITakeDamage
     private void FixedUpdate()
     {
         if (!initialized || rb2d == null) return;
-        rb2d.velocity = currentVelocity;
+
+
+        var hit = Physics2D.Raycast(FirePos.transform.position,currentVelocity.normalized);
+        if (hit.collider!=null)
+        {
+            rb2d.velocity = currentVelocity;
+            
+        }
+        else
+        {
+            rb2d.velocity = Vector2.zero;
+        }
+        // rb2d.MovePosition(rb2d.position+currentVelocity*Time.fixedDeltaTime);
+        currentPosition = rb2d.position;
+
+        // rb2d.velocity = currentVelocity;
         // rb2d.transform.position = currentPosition;
         // 
         
@@ -105,6 +120,7 @@ public class PlayerTank : MonoBehaviour,ITakeDamage
             rb2d.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
             rb2d.interpolation = RigidbodyInterpolation2D.Interpolate;
             rb2d.velocity = Vector2.zero;
+            
         }
 
         if (boxCollider != null)

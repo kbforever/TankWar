@@ -14,6 +14,7 @@ public class Bullet : MonoBehaviour
     public Vector2 movedir = Vector2.zero;
 
     private string targetTag = string.Empty;
+    public string selfTag = string.Empty;
     void Awake()
     {
     }
@@ -21,8 +22,8 @@ public class Bullet : MonoBehaviour
     void Start()
     {
         rgb2D = this.GetComponent<Rigidbody2D>();
-        if (this.tag == "Player") targetTag="Enemy";
-        else if(this.tag=="Enemy") targetTag = "Player";
+        if (this.selfTag == "Player") targetTag="Enemy";
+        else if(this.selfTag=="Enemy") targetTag = "Player";
         else Debug.LogError($"{this.name}Has Else Tag!!");
        
     }
@@ -49,7 +50,7 @@ public class Bullet : MonoBehaviour
     void OnTriggerEnter2D(Collider2D collision)
     {
 
-        if(collision.tag==this.tag) return;
+        if(collision.tag==this.selfTag) return;
         if (collision.tag == targetTag)
         {
             collision.gameObject.GetComponent<ITakeDamage>()?.TakeDamage(1);
