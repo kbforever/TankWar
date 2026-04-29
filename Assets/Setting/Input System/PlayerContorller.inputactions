@@ -27,8 +27,19 @@
             ],
             "bindings": [
                 {
-                    "name": "2D Vector",
-                    "id": "50639fe4-1c28-4ede-87db-f37a97265cc7",
+                    "name": "",
+                    "id": "ae2cc440-f713-420c-849c-c20d5134ba19",
+                    "path": "<Gamepad>/leftStick",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";GamePad",
+                    "action": "Move",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "WASD",
+                    "id": "54396ca1-8f67-422f-9663-aeecf684c3ac",
                     "path": "2DVector",
                     "interactions": "",
                     "processors": "",
@@ -39,7 +50,7 @@
                 },
                 {
                     "name": "up",
-                    "id": "33a466b1-b835-434c-9c02-e3408e20c4eb",
+                    "id": "bf254be3-4fbb-4933-b690-910bbe0b4d80",
                     "path": "<Keyboard>/w",
                     "interactions": "",
                     "processors": "",
@@ -50,7 +61,7 @@
                 },
                 {
                     "name": "down",
-                    "id": "85e7b567-582d-4e79-8586-bb7dad0f1b46",
+                    "id": "14b4344f-4457-4325-b21d-73705358f490",
                     "path": "<Keyboard>/s",
                     "interactions": "",
                     "processors": "",
@@ -61,7 +72,7 @@
                 },
                 {
                     "name": "left",
-                    "id": "8a8aedcf-0de7-4ffc-8b96-a59afa444ace",
+                    "id": "1b2a88ff-a685-4df8-89b2-9d1141d18958",
                     "path": "<Keyboard>/a",
                     "interactions": "",
                     "processors": "",
@@ -72,7 +83,7 @@
                 },
                 {
                     "name": "right",
-                    "id": "e37a6cc4-1ce4-49e0-a222-13c297ece6b3",
+                    "id": "84ad74b8-d8cf-4778-be90-3986d66e57d2",
                     "path": "<Keyboard>/d",
                     "interactions": "",
                     "processors": "",
@@ -93,99 +104,41 @@
                     "isPartOfComposite": false
                 }
             ]
+        }
+    ],
+    "controlSchemes": [
+        {
+            "name": "KeyBoard",
+            "bindingGroup": "KeyBoard",
+            "devices": [
+                {
+                    "devicePath": "<Gamepad>",
+                    "isOptional": false,
+                    "isOR": false
+                }
+            ]
         },
         {
-            "name": "Player2",
-            "id": "0212e51a-d435-4ad7-ba41-3b4d8a41942e",
-            "actions": [
+            "name": "New Control Scheme",
+            "bindingGroup": "New Control Scheme",
+            "devices": [
                 {
-                    "name": "Move",
-                    "type": "Value",
-                    "id": "e4bf5702-91f4-4a6d-a18d-48453a57907b",
-                    "expectedControlType": "Vector2",
-                    "processors": "",
-                    "interactions": "",
-                    "initialStateCheck": true
-                },
-                {
-                    "name": "Attack",
-                    "type": "Button",
-                    "id": "e639d030-1fe4-4047-a964-d81e9caf1371",
-                    "expectedControlType": "",
-                    "processors": "",
-                    "interactions": "",
-                    "initialStateCheck": false
+                    "devicePath": "<Gamepad>",
+                    "isOptional": false,
+                    "isOR": false
                 }
-            ],
-            "bindings": [
+            ]
+        },
+        {
+            "name": "GamePad",
+            "bindingGroup": "GamePad",
+            "devices": [
                 {
-                    "name": "2D Vector",
-                    "id": "74f44a96-dd53-4c46-8c74-0ece2a948eab",
-                    "path": "2DVector",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "Move",
-                    "isComposite": true,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "up",
-                    "id": "f9540c8d-b88e-4fc8-8722-e6664bcab7ed",
-                    "path": "<Keyboard>/upArrow",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "Move",
-                    "isComposite": false,
-                    "isPartOfComposite": true
-                },
-                {
-                    "name": "down",
-                    "id": "167964bb-18f7-42f3-9e2a-257c65ccee97",
-                    "path": "<Keyboard>/downArrow",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "Move",
-                    "isComposite": false,
-                    "isPartOfComposite": true
-                },
-                {
-                    "name": "left",
-                    "id": "7c8ddb93-b788-4b02-adf8-d326aebdc9c4",
-                    "path": "<Keyboard>/leftArrow",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "Move",
-                    "isComposite": false,
-                    "isPartOfComposite": true
-                },
-                {
-                    "name": "right",
-                    "id": "2c90cd62-39ae-4471-b22b-7af03a310ce3",
-                    "path": "<Keyboard>/rightArrow",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "Move",
-                    "isComposite": false,
-                    "isPartOfComposite": true
-                },
-                {
-                    "name": "",
-                    "id": "ff88e839-3e19-4ef6-86bd-ee574f3a9e42",
-                    "path": "<Keyboard>/numpad1",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "Attack",
-                    "isComposite": false,
-                    "isPartOfComposite": false
+                    "devicePath": "<Gamepad>",
+                    "isOptional": false,
+                    "isOR": false
                 }
             ]
         }
-    ],
-    "controlSchemes": []
+    ]
 }

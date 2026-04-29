@@ -53,8 +53,8 @@ public class DataManager : MonoBehaviour, IGameFeature
 
     public void SaveGameData()
     {
-        return;
-        if (currentData == null|| savePath==string.Empty||savePath==null) return;
+        
+        if (currentData.enmeyPositions == null|| savePath==string.Empty||savePath==null) return;
         string json = JsonUtility.ToJson(currentData);
         File.WriteAllText(savePath, json);
         Debug.Log("游戏数据已保存: " + savePath);

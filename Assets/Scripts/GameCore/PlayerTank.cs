@@ -54,30 +54,54 @@ public class PlayerTank : MonoBehaviour,ITakeDamage
         if (!initialized || rb2d == null) return;
 
 
-        var hit = Physics2D.Raycast(FirePos.transform.position,currentVelocity.normalized);
-        if (hit.collider!=null)
+        float targetAngle = Mathf.Atan2(currentVelocity.y, currentVelocity.x) * Mathf.Rad2Deg-90;
+        // Debug.Log(targetAngle);
+
+        if (currentVelocity != Vector2.zero)
         {
-            rb2d.velocity = currentVelocity;
+            Quaternion targetRotation = Quaternion.Euler(0, 0, targetAngle);
+            rectTransform.rotation = targetRotation;  
+        }
+        CheckMove();
+        
+        if (shouldMove)
+        {
+            rb2d.velocity = currentVelocity*moveSpeed*tileSize;
             
         }
         else
         {
             rb2d.velocity = Vector2.zero;
         }
-        // rb2d.MovePosition(rb2d.position+currentVelocity*Time.fixedDeltaTime);
-        currentPosition = rb2d.position;
+      
+    }
 
-        // rb2d.velocity = currentVelocity;
-        // rb2d.transform.position = currentPosition;
-        // 
+    bool shouldMove;
+    Vector2 boxSize;
+    private void CheckMove()
+    {
+        // Debug.Log(currentDirection);
+        RaycastHit2D[] hits = Physics2D.BoxCastAll((Vector2)transform.position+currentVelocity*boxSize*0.05f,boxSize*0.5f,0f,currentVelocity,moveSpeed*tileSize*Time.fixedDeltaTime);
         
-        // if (rectTransform != null)
-        // {
-        //     rectTransform.anchorMin = new Vector2(0, 0);
-        //     rectTransform.anchorMax = new Vector2(0, 0);
-        //     rectTransform.pivot = new Vector2(0, 0);
-        //     rectTransform.anchoredPosition = currentPosition;
-        // }
+   
+        shouldMove = true;
+        foreach(var hit in hits)
+        {
+            if (hit.collider!=null )
+            {
+                if(hit.collider.CompareTag("Bullet") || hit.collider.gameObject==this.gameObject) continue;
+                
+
+                if(hit.collider.CompareTag("Enemy") || hit.collider.CompareTag("Player")) shouldMove=false;
+          
+            // 调试：在Scene视图中看到红色射线
+            // Debug.DrawRay(FirePos.transform.position, currentDirection.normalized * 1.5f, Color.red);
+            }
+        }
+
+        // if(shouldMove) DrawWireBox((Vector2)transform.position+currentDirection*boxSize*0.05f,boxSize*0.5f,Color.green);
+        // else DrawWireBox((Vector2)transform.position+currentDirection*boxSize*0.05f,boxSize*0.5f,Color.red);
+        
     }
 
     public void Initialize(float tileSize, Vector2Int spawnGridPosition, Vector2Int gridSize, Color tankColor, int playerIndex = 1, LevelData levelData = null)
@@ -137,7 +161,7 @@ public class PlayerTank : MonoBehaviour,ITakeDamage
         currentPosition = new Vector2((spawnGridPosition.x+0.5f) * this.tileSize, (spawnGridPosition.y+0.5f) * this.tileSize);
         rectTransform.anchoredPosition = currentPosition;
         rectTransform.sizeDelta = new Vector2(this.tileSize, this.tileSize);
-
+        this.boxSize = new Vector2(this.tileSize,this.tileSize);
         if (rb2d != null)
         {
             rb2d.position = currentPosition;
@@ -173,34 +197,9 @@ public class PlayerTank : MonoBehaviour,ITakeDamage
             currentVelocity = Vector2.zero;
             return;
         }
-        
-        Vector2 movementVelocity = inputDirection.normalized * moveSpeed * tileSize;
-        Vector2 predictedPosition = rb2d.position + movementVelocity * Time.deltaTime;
 
-
-        float targetAngle = Mathf.Atan2(inputDirection.y, inputDirection.x) * Mathf.Rad2Deg-90;
-        // Debug.Log(targetAngle);
-
-        if (currentVelocity != Vector2.zero)
-        {
-            Quaternion targetRotation = Quaternion.Euler(0, 0, targetAngle);
-            rectTransform.rotation = targetRotation;  
-        }
-          
-
-        // int newGridX = Mathf.RoundToInt(predictedPosition.x / tileSize);
-        // int newGridY = Mathf.RoundToInt(predictedPosition.y / tileSize);
-        
-
-        currentVelocity = movementVelocity;
-        // if (CanMoveTo(newGridX, newGridY))
-        // {
-        //     currentVelocity = movementVelocity;
-        // }
-        // else
-        // {
-        //     currentVelocity = Vector2.zero;
-        // }
+        currentVelocity = inputDirection;
+      
     }
 
 

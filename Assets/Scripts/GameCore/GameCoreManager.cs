@@ -243,7 +243,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         
     }
 
-    public void Shutdown()
+    void OnApplicationQuit()
     {
         if (Framework != null)
         {
@@ -256,11 +256,16 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
             Framework.UnsubscribeEvent<BulletEvent>(CreateBullet);
         }
         UpdateGameData();
+        dataManager.SaveGameData();
         
         ClearLevelCells();
         ClearPlayerTank();
         ClearEnemyTanks();
         ClearBoundaryObjects();
+    }
+    public void Shutdown()
+    {
+        
     }
 
     private void RenderLevel(LevelData levelData,bool GenEnemy = true)
@@ -527,7 +532,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         }
 
         dataManager.SetGameData(gameData);
-        dataManager.SaveGameData();
+        
     }
 
 

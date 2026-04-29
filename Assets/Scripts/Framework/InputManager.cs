@@ -23,7 +23,7 @@ public partial class InputManager : MonoBehaviour, IGameFeature
         
         inputActions = new PlayerContorller();
         AcitonByName["Player1"] = inputActions.Player1;
-        AcitonByName["Player2"] = inputActions.Player2;
+        // AcitonByName["Player2"] = inputActions.Player2;
         
         isPaused = false;
         //
@@ -92,12 +92,12 @@ public partial class InputManager : MonoBehaviour, IGameFeature
         if(gameMode == GameMode.SinglePlayer)
         {
             inputActions.Player1.Enable();
-            inputActions.Player2.Disable();
+            // inputActions.Player2.Disable();
         }
         else if(gameMode == GameMode.TwoPlayer)
         {
             inputActions.Player1.Enable();
-            inputActions.Player2.Enable();
+            // inputActions.Player2.Enable();
         }
         
     }
@@ -127,7 +127,7 @@ public partial class InputManager : MonoBehaviour, IGameFeature
     {
         IsActive = false;
         inputActions.Player1.Disable();
-        inputActions.Player2.Disable();
+        // inputActions.Player2.Disable();
     }
 
     public void LoadConfig(InputConfig config)
