@@ -37,6 +37,17 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
     public List<EnemyTank> enemyTanks = new List<EnemyTank>();
     private readonly List<GameObject> boundaryObjects = new List<GameObject>();
 
+
+
+    #region Prefabs
+    private GameObject PlayerPrefab;
+    private GameObject EnemyPrefab;
+
+    private GameObject BulletPrefab;
+    private GameObject[] CellPrefabs;
+
+    #endregion
+
     public bool IsActive{get;private set;}
 
     public void FeatureFixedUpdate()
@@ -75,7 +86,24 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         Framework.SubscribeEvent<PlayerDieEvent>(PlayerDie);
         Framework.SubscribeEvent<EnemyDieEvent>(EnemyDie);
         
+        LoadPrefabs();
     }
+
+
+    void LoadPrefabs()
+    {
+        PlayerPrefab = ResourceManager.LoadResource<GameObject>("Prefabs/Maps/PlayerTank1");
+        EnemyPrefab = ResourceManager.LoadResource<GameObject>("Prefabs/Maps/EnemyTank");
+        CellPrefabs = new GameObject[(int)LevelTileType.Base];
+        BulletPrefab = ResourceManager.LoadResource<GameObject>("Prefabs/Maps/Bullet");
+        for(int i = 0; i < (int)LevelTileType.Base; i++)
+        {
+            var tile = (LevelTileType)i;
+            if(tile==LevelTileType.EnemySpawn||tile==LevelTileType.PlayerSpawn) continue;
+            CellPrefabs[i] = ResourceManager.LoadResource<GameObject>("Prefabs/Maps/"+tile.ToString());
+        }
+    }
+
 
     private void EnemyDie(EnemyDieEvent enemyDieEvent)
     {
@@ -381,7 +409,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
     private PlayerTank CreatePlayerTank(LevelData levelData, float cellSize, Vector2Int spawnGrid, Color color, int playerIndex)
     {
         // GameObject tankObject = new GameObject($"PlayerTank{playerIndex}", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(BoxCollider2D), typeof(Rigidbody2D), typeof(PlayerTank));
-        GameObject tankObject = Instantiate(Resources.Load<GameObject>($"Prefabs/Maps/PlayerTank{playerIndex}"));
+        GameObject tankObject = Instantiate(PlayerPrefab);
         tankObject.transform.SetParent(levelContainer, false);
         
         var playerTank = tankObject.AddComponent<PlayerTank>();
@@ -440,7 +468,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
     private EnemyTank CreateEnemyTank(float cellSize, Vector2Int spawnGrid, Color color)
     {
         // GameObject tankObject = new GameObject("EnemyTank", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(BoxCollider2D), typeof(Rigidbody2D), typeof(EnemyTank));
-        GameObject tankObject = Instantiate(Resources.Load<GameObject>("Prefabs/Maps/EnemyTank"));
+        GameObject tankObject = Instantiate(EnemyPrefab);
         
         tankObject.transform.SetParent(levelContainer, false);
 
@@ -456,7 +484,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
     private EnemyTank CreateEnemyTank(float cellSize,Vector2 pos, Color color)
     {
         // GameObject tankObject = new GameObject("EnemyTank", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(BoxCollider2D), typeof(Rigidbody2D), typeof(EnemyTank));
-        GameObject tankObject = Instantiate(Resources.Load<GameObject>("Prefabs/Maps/EnemyTank"));
+        GameObject tankObject = Instantiate(EnemyPrefab);
         
         tankObject.transform.SetParent(levelContainer,false);
 
@@ -485,12 +513,12 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
     private GameObject CreateCell(LevelTileType tileType)
     {
         // var cell = new GameObject("TileCell", typeof(RectTransform), typeof(Image));
-        var t = "Prefabs/Maps/"+tileType.ToString();
+        
         if(tileType==LevelTileType.PlayerSpawn || tileType == LevelTileType.EnemySpawn)
         {
             return CreateCell(LevelTileType.Empty);
         }
-        var cell = Instantiate(Resources.Load<GameObject>("Prefabs/Maps/"+tileType.ToString()));
+        var cell = Instantiate(CellPrefabs[(int)tileType]);
 
         var image = cell.GetComponent<Image>();
         image.color = GetColorForTile(tileType);
@@ -547,10 +575,9 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
 
     private void CreateBullet(GameObject parent)
     {
-        GameObject bulletPrefab = Resources.Load<GameObject>("Prefabs/Maps/Bullet");
         
 
-        GameObject bullet = Instantiate(bulletPrefab,parent.transform.position,Quaternion.identity);
+        GameObject bullet = Instantiate(BulletPrefab,parent.transform.position,Quaternion.identity);
         bullet.transform.SetParent(levelContainer);
         var Bullet = bullet.AddComponent<Bullet>();
         Bullet.movedir = parent.transform.up;

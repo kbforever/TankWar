@@ -120,7 +120,7 @@ public class UIFramework : MonoBehaviour, IGameFeature
     public void LoadAndRegisterPanel<T>(string panelName) where T : UIPanel
     {
         string prefabPath = "Prefabs/UI/" + typeof(T).Name;
-        GameObject prefab = Resources.Load<GameObject>(prefabPath);
+        GameObject prefab = ResourceManager.LoadResource<GameObject>(prefabPath);
         if (prefab != null)
         {
             GameObject instance = Instantiate(prefab, mainCanvas.transform);
