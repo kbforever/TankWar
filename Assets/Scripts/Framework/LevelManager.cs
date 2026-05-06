@@ -4,6 +4,7 @@ using System.IO;
 using UnityEngine;
 using GameFramework;
 using LevelGeneration;
+using System.Threading.Tasks;
 
 [DisallowMultipleComponent]
 public class LevelManager : MonoBehaviour, IGameFeature
@@ -12,7 +13,7 @@ public class LevelManager : MonoBehaviour, IGameFeature
     [SerializeField] private int defaultLevelWidth = 26;
     [SerializeField] private int defaultLevelHeight = 26;
     [SerializeField] private bool loadLevelFromResources = true;
-    [SerializeField] private string resourceLevelPath = "Levels/level";
+    [SerializeField] private string resourceLevelPath = "Assets/Levels/level";
 
 
     public int CurrentLevelIndex => currentLevelIndex;  
@@ -70,7 +71,9 @@ public class LevelManager : MonoBehaviour, IGameFeature
         if (isLoading || levelIndex < 0) return;
         currentLevelIndex = levelIndex;
         
-        StartCoroutine(LoadLevelDataAsync(levelIndex));
+        
+        // StartCoroutine(LoadLevelDataAsync(levelIndex));
+        LoadLevelDataAsync(levelIndex);
     }
 
     public void LoadNextLevel()
@@ -94,12 +97,12 @@ public class LevelManager : MonoBehaviour, IGameFeature
         return currentLevelData != null ? currentLevelData.levelName : $"Level_{currentLevelIndex}";
     }
 
-    private IEnumerator LoadLevelDataAsync(int levelIndex)
+    private async void LoadLevelDataAsync(int levelIndex)
     {
         isLoading = true;
-        yield return null;
+        // yield return null;
 
-        currentLevelData = LoadLevelData(levelIndex);
+        currentLevelData = await LoadLevelData(levelIndex);
 
         isLoading = false;
         // PublishLevelLoaded();
@@ -110,12 +113,14 @@ public class LevelManager : MonoBehaviour, IGameFeature
         // }
     }
 
-    private LevelData LoadLevelData(int levelIndex)
+    private async Task<LevelData> LoadLevelData(int levelIndex,string extend=".json")
     {
         if (loadLevelFromResources)
         {
-            string resourcePath = resourceLevelPath + levelIndex;
-            TextAsset textAsset = Resources.Load<TextAsset>(resourcePath);
+            string resourcePath = resourceLevelPath + levelIndex+extend;
+            // TextAsset textAsset = Resources.Load<TextAsset>(resourcePath);
+            TextAsset textAsset = await ResourceManager.LoadAddressable<TextAsset>(resourcePath);
+
             if (textAsset != null)
             {
                 var loadedData = LevelData.FromJson(textAsset.text);

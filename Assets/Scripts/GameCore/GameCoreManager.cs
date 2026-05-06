@@ -4,7 +4,7 @@ using GameFramework;
 using UnityEngine;
 using LevelGeneration;
 using UnityEngine.UI;
-using System.Data.Common;
+using System.Threading.Tasks;
 
 public class GameCoreManager : MonoBehaviour, IGameFeature
 {
@@ -90,17 +90,25 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
     }
 
 
-    void LoadPrefabs()
+    async void LoadPrefabs()
     {
-        PlayerPrefab = ResourceManager.LoadResource<GameObject>("Prefabs/Maps/PlayerTank1");
-        EnemyPrefab = ResourceManager.LoadResource<GameObject>("Prefabs/Maps/EnemyTank");
+        string rootPrefabsPath = "Assets/Prefabs/Maps/";
+        // PlayerPrefab = ResourceManager.LoadResource<GameObject>("Prefabs/Maps/PlayerTank1");
+        PlayerPrefab = await ResourceManager.LoadAddressable<GameObject>(rootPrefabsPath+ "PlayerTank1.prefab");
+
+        // EnemyPrefab = ResourceManager.LoadResource<GameObject>("Prefabs/Maps/EnemyTank");
+        EnemyPrefab = await ResourceManager.LoadAddressable<GameObject>(rootPrefabsPath+"EnemyTank.prefab");
+
         CellPrefabs = new GameObject[(int)LevelTileType.Base];
-        BulletPrefab = ResourceManager.LoadResource<GameObject>("Prefabs/Maps/Bullet");
+        // BulletPrefab = ResourceManager.LoadResource<GameObject>("Prefabs/Maps/Bullet");
+
+        BulletPrefab = await ResourceManager.LoadAddressable<GameObject>(rootPrefabsPath+"Bullet.prefab");
+
         for(int i = 0; i < (int)LevelTileType.Base; i++)
         {
             var tile = (LevelTileType)i;
             if(tile==LevelTileType.EnemySpawn||tile==LevelTileType.PlayerSpawn) continue;
-            CellPrefabs[i] = ResourceManager.LoadResource<GameObject>("Prefabs/Maps/"+tile.ToString());
+            CellPrefabs[i] = await ResourceManager.LoadAddressable<GameObject>(rootPrefabsPath+tile.ToString()+".prefab");
         }
     }
 

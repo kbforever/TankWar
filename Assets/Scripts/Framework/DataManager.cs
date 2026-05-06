@@ -2,8 +2,6 @@ using System;
 using System.IO;
 using UnityEngine;
 using GameFramework;
-using System.Collections.Generic;
-using LevelGeneration;
 
 [DisallowMultipleComponent]
 public class DataManager : MonoBehaviour, IGameFeature

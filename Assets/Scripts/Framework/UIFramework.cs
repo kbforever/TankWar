@@ -4,6 +4,7 @@ using UnityEngine;
 using GameFramework;
 using UnityEngine.UI;
 using System.IO;
+using System.Threading.Tasks;
 
 
 [DisallowMultipleComponent]
@@ -24,7 +25,7 @@ public class UIFramework : MonoBehaviour, IGameFeature
 
     public void Initialize()
     {
-        IsActive = true;
+        IsActive = false;
         // 创建 Canvas
         if(this.mainCanvas == null)
         {
@@ -49,12 +50,23 @@ public class UIFramework : MonoBehaviour, IGameFeature
             }
         }
 
-        LoadAndRegisterPanel<MainMenuPanel>("MainMenuPanel");
-        LoadAndRegisterPanel<GamePanel>("GamePanel");
-        LoadAndRegisterPanel<PausePanel>("PausePanel");
-        LoadAndRegisterPanel<GameOverPanel>("GameOverPanel");
+        RegisterAndLoadPanels();
         Subscribe<GameStateChangedEvent>(OnStateChanged);
+        
     }
+
+
+    private async void RegisterAndLoadPanels()
+    {
+        
+        await LoadAndRegisterPanel<MainMenuPanel>("MainMenuPanel");
+        await LoadAndRegisterPanel<GamePanel>("GamePanel");
+        await LoadAndRegisterPanel<PausePanel>("PausePanel");
+        await LoadAndRegisterPanel<GameOverPanel>("GameOverPanel");
+
+        Framework.ChangeState(GameState.MainMenu);
+    }
+
 
     public void FeatureUpdate() { }
     public void FeatureFixedUpdate() { }
@@ -117,10 +129,12 @@ public class UIFramework : MonoBehaviour, IGameFeature
         return panel;
     }
 
-    public void LoadAndRegisterPanel<T>(string panelName) where T : UIPanel
+    public async Task<bool> LoadAndRegisterPanel<T>(string panelName) where T : UIPanel
     {
-        string prefabPath = "Prefabs/UI/" + typeof(T).Name;
-        GameObject prefab = ResourceManager.LoadResource<GameObject>(prefabPath);
+        string prefabPath = "Assets/Prefabs/UI/" + typeof(T).Name;
+        // GameObject prefab = ResourceManager.LoadResource<GameObject>(prefabPath);
+        GameObject prefab = await ResourceManager.LoadAddressable<GameObject>(prefabPath+".prefab");
+
         if (prefab != null)
         {
             GameObject instance = Instantiate(prefab, mainCanvas.transform);
@@ -133,10 +147,13 @@ public class UIFramework : MonoBehaviour, IGameFeature
             RegisterPanel(panel);
             panel.Initialize();
             panel.gameObject.SetActive(false);
+            return true;
+
         }
         else
         {
             Debug.LogError($"Failed to load prefab at path: {prefabPath}. Make sure the prefab exists in Assets/Resources/Prefabs/ and is named {panelName}.prefab");
+            return false;
         }
     }
 

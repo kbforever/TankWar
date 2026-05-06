@@ -1,7 +1,7 @@
 using UnityEngine;
 using LevelGeneration;
-using Unity.VisualScripting;
-using System;
+
+
 
 
 public class PlayerTank : MonoBehaviour,ITakeDamage
@@ -118,17 +118,17 @@ public class PlayerTank : MonoBehaviour,ITakeDamage
         FirePos = transform.Find(nameof(FirePos)).gameObject;
         if (rectTransform == null)
         {
-            rectTransform = this.AddComponent<RectTransform>();
+            rectTransform = this.gameObject.AddComponent<RectTransform>();
         }
 
         if (rb2d == null)
         {
-            rb2d = this.AddComponent<Rigidbody2D>();
+            rb2d = this.gameObject.AddComponent<Rigidbody2D>();
         }
 
         if (boxCollider == null)
         {
-            boxCollider = this.AddComponent<BoxCollider2D>();
+            boxCollider = this.gameObject.AddComponent<BoxCollider2D>();
         }
 
         this.tileSize = Mathf.Max(1f, tileSize);

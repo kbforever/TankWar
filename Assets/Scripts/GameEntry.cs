@@ -61,7 +61,7 @@ public class GameEntry : MonoBehaviour
         // 启动游戏，进入主菜单
         if (gameFramework != null)
         {
-            gameFramework.ChangeState(GameState.MainMenu);
+            gameFramework.ChangeState(GameState.Boot);
         }
     }
 }

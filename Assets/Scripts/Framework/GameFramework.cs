@@ -124,15 +124,15 @@ namespace GameFramework
                 feature.Initialize();
             }
 
-            ChangeState(GameState.Boot);
+            
         }
 
         private void Start()
         {
-            if (CurrentState == GameState.Boot)
-            {
-                ChangeState(GameState.MainMenu);
-            }
+            // if (CurrentState == GameState.Boot)
+            // {
+            //     ChangeState(GameState.MainMenu);
+            // }
         }
 
         private void Update()
