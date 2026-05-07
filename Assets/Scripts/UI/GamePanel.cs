@@ -12,18 +12,15 @@ public class GamePanel : UIPanel
     [SerializeField] private Text scoreText;
     [SerializeField] private Button pauseButton;
 
-    private UIFramework uiFramework;
 
     private DataManager dataManager;
-    private InputManager inputManager;
     protected GameFramework.GameFramework Framework => GameFramework.GameFramework.Instance;
 
     public override void Initialize()
     {
         base.Initialize();
-        uiFramework = Framework.GetFeature<UIFramework>();
+        
         dataManager = Framework.GetFeature<DataManager>();
-        inputManager = Framework.GetFeature<InputManager>();
         // 自动获取 UI 元素
         scoreText = transform.Find("scoreText")?.GetComponent<Text>();
         pauseButton = transform.Find("pauseButton")?.GetComponent<Button>();

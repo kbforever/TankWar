@@ -266,6 +266,8 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
             Time.timeScale = 0f;
             inputManager.DisableMaps();
             UpdateGameData();
+            
+            
         }
         else if (nextState == GameState.GameOver)
         {
@@ -291,8 +293,13 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
 
             Framework.UnsubscribeEvent<BulletEvent>(CreateBullet);
         }
-        UpdateGameData();
-        dataManager.SaveGameData();
+
+        if (dataManager != null)
+        {
+            UpdateGameData();
+            dataManager.SaveGameData();
+        }
+        
         
         ClearLevelCells();
         ClearPlayerTank();
@@ -483,7 +490,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         var enemyTank = tankObject.AddComponent<EnemyTank>();
         // tankObject.GetComponent<EnemyTank>();
 
-        enemyTank?.Initialize(cellSize, spawnGrid, Color.white);
+        enemyTank?.Initialize(cellSize, spawnGrid, Color.white,maxEnemyCount);
         maxEnemyCount--;
         return enemyTank;
     }
@@ -499,8 +506,9 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         var enemyTank = tankObject.AddComponent<EnemyTank>();
         // tankObject.GetComponent<EnemyTank>();
 
-        enemyTank?.Initialize(cellSize,pos, Color.white);
+        enemyTank?.Initialize(cellSize,pos, Color.white,maxEnemyCount);
         
+        maxEnemyCount--;
         
         return enemyTank;
     }

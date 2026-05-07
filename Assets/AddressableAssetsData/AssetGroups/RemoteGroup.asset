@@ -20,12 +20,14 @@ MonoBehaviour:
   - m_GUID: 3501e346627390c4f8c37cdfa0efd580
     m_Address: Assets/Levels/level3.json
     m_ReadOnly: 0
-    m_SerializedLabels: []
+    m_SerializedLabels:
+    - Levels
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 352b921c6b7139441a9d78a402b195fd
     m_Address: Assets/Levels/level2.json
     m_ReadOnly: 0
-    m_SerializedLabels: []
+    m_SerializedLabels:
+    - Levels
     FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 2d949eb5098aaef43bc9123706b287a8, type: 2}

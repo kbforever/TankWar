@@ -7,14 +7,14 @@ using System.Transactions;
 
 public class MainMenuPanel : UIPanel
 {
-    // private Button SinglePlayer;
-    // private Button TwoPlayer;
+    private Button SinglePlayer;
+    private Button TwoPlayer;
     private Button QuitGame;
 
 
     private GameObject Title;
-    private Toggle SinglePlayer;
-    private Toggle TwoPlayer;
+    // private Toggle SinglePlayer;
+    // private Toggle TwoPlayer;
     private UIFramework uiFramework;
     private LevelManager levelManager;
     private DataManager dataManager;
@@ -30,26 +30,26 @@ public class MainMenuPanel : UIPanel
         dataManager = Framework.GetFeature<DataManager>();
         inputManager =Framework.GetFeature<InputManager>();
         // 自动获取 Button
-        // SinglePlayer = transform.Find(nameof(SinglePlayer))?.GetComponent<Button>();
-        // TwoPlayer = transform.Find(nameof(TwoPlayer))?.GetComponent<Button>();
+        SinglePlayer = transform.Find(nameof(SinglePlayer))?.GetComponent<Button>();
+        TwoPlayer = transform.Find(nameof(TwoPlayer))?.GetComponent<Button>();
         QuitGame = transform.Find(nameof(QuitGame))?.GetComponent<Button>();
-        // if (SinglePlayer != null)
-        // {
-        //     SinglePlayer.onClick.AddListener(OnSinglePlayer);
-        // }
-
-        // if (TwoPlayer != null)
-        // {
-        //     TwoPlayer.onClick.AddListener(OnTwoPlayer);
-        // }
-
-
-        Title = transform.Find(nameof(Title)).gameObject;
-        if (Title != null)
+        if (SinglePlayer != null)
         {
-            SinglePlayer = Title.transform.Find(nameof(SinglePlayer))?.GetComponent<Toggle>();
-            TwoPlayer = Title.transform.Find(nameof(TwoPlayer))?.GetComponent<Toggle>();
+            SinglePlayer.onClick.AddListener(OnSinglePlayer);
         }
+
+        if (TwoPlayer != null)
+        {
+            TwoPlayer.onClick.AddListener(OnTwoPlayer);
+        }
+
+
+        // Title = transform.Find(nameof(Title)).gameObject;
+        // if (Title != null)
+        // {
+        //     SinglePlayer = Title.transform.Find(nameof(SinglePlayer))?.GetComponent<Toggle>();
+        //     TwoPlayer = Title.transform.Find(nameof(TwoPlayer))?.GetComponent<Toggle>();
+        // }
         
         // SinglePlayer.isOn=true;
         
@@ -64,20 +64,20 @@ public class MainMenuPanel : UIPanel
 
     void Update()
     {
-        if (Framework.CurrentState == GameState.MainMenu)
-        {
-            if (inputManager.GetButtonDown("MoveUp") || inputManager.GetButtonDown("MoveDown"))
-            {
-                if(SinglePlayer.isOn) {TwoPlayer.isOn=true;return;}
-                if(TwoPlayer.isOn) {SinglePlayer.isOn = true;return;} 
-            }
-            if (inputManager.GetButtonDown("Attack"))
-            {
+        // if (Framework.CurrentState == GameState.MainMenu)
+        // {
+        //     if (inputManager.GetButtonDown("MoveUp") || inputManager.GetButtonDown("MoveDown"))
+        //     {
+        //         if(SinglePlayer.isOn) {TwoPlayer.isOn=true;return;}
+        //         if(TwoPlayer.isOn) {SinglePlayer.isOn = true;return;} 
+        //     }
+        //     if (inputManager.GetButtonDown("Attack"))
+        //     {
                 
-                if(SinglePlayer.isOn) OnSinglePlayer();
-                else if(TwoPlayer.isOn) OnTwoPlayer();
-            }
-        }
+        //         if(SinglePlayer.isOn) OnSinglePlayer();
+        //         else if(TwoPlayer.isOn) OnTwoPlayer();
+        //     }
+        // }
         
     }
 
@@ -86,7 +86,7 @@ public class MainMenuPanel : UIPanel
         base.OnShow();
         inputManager.DisableMaps();
         // 显示时的逻辑
-        EventSystem.current.firstSelectedGameObject=SinglePlayer.gameObject;
+        EventSystem.current.SetSelectedGameObject(SinglePlayer.gameObject);
        
     }
 

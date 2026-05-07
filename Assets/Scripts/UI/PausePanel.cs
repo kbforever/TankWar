@@ -41,6 +41,8 @@ public class PausePanel : UIPanel
 
     private void OnBackMenu()
     {
+        var dataManager = Framework.GetFeature<DataManager>();
+        dataManager?.SaveGameData();
         Framework.ChangeState(GameState.MainMenu);
     }
 

@@ -19,7 +19,7 @@ public class EnemyTank : MonoBehaviour,ITakeDamage
     [SerializeField] private EnemyTankType tankType = EnemyTankType.Basic;
 
 
-
+    public int Id;
     public EnemyTankType TankType => tankType;
     private RectTransform rectTransform;
 
@@ -62,10 +62,22 @@ public class EnemyTank : MonoBehaviour,ITakeDamage
         Attack();
     }
 
+
+    public override bool Equals(object other)
+    {
+        EnemyTank obj = other as EnemyTank;
+        return obj.Id == this.Id;
+    }
+
+    public override int GetHashCode()
+    {
+        return this.Id.GetHashCode();
+    }
+
+
     bool shouldMove;
     Vector2 boxSize;
 
-    float checkRadius;
     private void FixedUpdate()
     {
 
@@ -132,23 +144,23 @@ public class EnemyTank : MonoBehaviour,ITakeDamage
     }
 
 
-    void DrawWireBox(Vector2 center, Vector2 size, Color color)
-    {
-        Vector2 half = size / 2;
-        Vector2[] corners = new Vector2[]
-        {
-            center + new Vector2(-half.x,  half.y), // 左上
-            center + new Vector2( half.x,  half.y), // 右上
-            center + new Vector2( half.x, -half.y), // 右下
-            center + new Vector2(-half.x, -half.y)  // 左下
-        };
-        Debug.DrawLine(corners[0], corners[1], color);
-        Debug.DrawLine(corners[1], corners[2], color);
-        Debug.DrawLine(corners[2], corners[3], color);
-        Debug.DrawLine(corners[3], corners[0], color);
-    }
+    // void DrawWireBox(Vector2 center, Vector2 size, Color color)
+    // {
+    //     Vector2 half = size / 2;
+    //     Vector2[] corners = new Vector2[]
+    //     {
+    //         center + new Vector2(-half.x,  half.y), // 左上
+    //         center + new Vector2( half.x,  half.y), // 右上
+    //         center + new Vector2( half.x, -half.y), // 右下
+    //         center + new Vector2(-half.x, -half.y)  // 左下
+    //     };
+    //     Debug.DrawLine(corners[0], corners[1], color);
+    //     Debug.DrawLine(corners[1], corners[2], color);
+    //     Debug.DrawLine(corners[2], corners[3], color);
+    //     Debug.DrawLine(corners[3], corners[0], color);
+    // }
 
-    public void Initialize(float tileSize, Vector2Int spawnGridPosition, Color tankColor)
+    public void Initialize(float tileSize, Vector2Int spawnGridPosition, Color tankColor,int id)
     {
 
         rectTransform = GetComponent<RectTransform>();
@@ -173,9 +185,9 @@ public class EnemyTank : MonoBehaviour,ITakeDamage
 
         this.tileSize = Mathf.Max(1f, tileSize);
 
+        this.Id = id;
         this.currentHealth = this.maxHealth;
 
-        this.checkRadius = this.tileSize/10f;
 
         if (rb2d != null)
         {
@@ -220,7 +232,7 @@ public class EnemyTank : MonoBehaviour,ITakeDamage
     }
 
 
-     public void Initialize(float tileSize, Vector2 pos,Color tankColor)
+     public void Initialize(float tileSize, Vector2 pos,Color tankColor,int id)
     {
 
         rectTransform = GetComponent<RectTransform>();
@@ -245,6 +257,7 @@ public class EnemyTank : MonoBehaviour,ITakeDamage
 
         this.tileSize = Mathf.Max(1f, tileSize);
 
+        this.Id = id;
         this.currentHealth = this.maxHealth;
 
         if (rb2d != null)
@@ -361,12 +374,12 @@ public class EnemyTank : MonoBehaviour,ITakeDamage
 
     public void TakeDamage(int damage)
     {
-        currentHealth -= damage;
-        if (currentHealth <= 0)
+        this.currentHealth -= damage;
+        if (this.currentHealth <= 0)
         {
-            currentHealth = 0;
+            this.currentHealth = 0;
             // 可以在这里添加死亡逻辑
-            
+           
             Framework.PublishEvent<GameCoreManager.EnemyDieEvent>(new GameCoreManager.EnemyDieEvent(this));
             
         }

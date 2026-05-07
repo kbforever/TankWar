@@ -26,10 +26,12 @@ public class UIFramework : MonoBehaviour, IGameFeature
     public void Initialize()
     {
         IsActive = false;
+
+        this.mainCanvas = GameObject.Find("Canvas").GetComponent<Canvas>();
         // 创建 Canvas
         if(this.mainCanvas == null)
         {
-            GameObject canvasObj = new GameObject("MainCanvas");
+            GameObject canvasObj = new GameObject("Canvas");
             Canvas canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
@@ -58,7 +60,7 @@ public class UIFramework : MonoBehaviour, IGameFeature
 
     private async void RegisterAndLoadPanels()
     {
-        
+
         await LoadAndRegisterPanel<MainMenuPanel>("MainMenuPanel");
         await LoadAndRegisterPanel<GamePanel>("GamePanel");
         await LoadAndRegisterPanel<PausePanel>("PausePanel");

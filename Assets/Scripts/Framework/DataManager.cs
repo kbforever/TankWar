@@ -9,7 +9,7 @@ public class DataManager : MonoBehaviour, IGameFeature
     [Header("数据存档配置")]
     [SerializeField] private string saveFileName = "gameSave.json";
 
-    private string savePath;
+    private string saverootPath;
     private GameData currentData;
 
     public bool IsActive { get; private set; }
@@ -27,7 +27,7 @@ public class DataManager : MonoBehaviour, IGameFeature
 
     public void SetSavePath(GameMode gameMode)
     {
-        savePath = Path.Combine(Application.persistentDataPath,gameMode.ToString(), saveFileName);
+        saverootPath = Path.Combine(Application.persistentDataPath,gameMode.ToString());
         LoadGameData();
         currentData.gameMode = gameMode;
     }
@@ -52,15 +52,21 @@ public class DataManager : MonoBehaviour, IGameFeature
     public void SaveGameData()
     {
         
-        if (currentData.enmeyPositions == null|| savePath==string.Empty||savePath==null) return;
+        if (currentData.enmeyPositions == null|| saverootPath==string.Empty||saverootPath==null) return;
+
+        if (!Directory.Exists(saverootPath))
+        {
+            Directory.CreateDirectory(saverootPath);
+        }
         string json = JsonUtility.ToJson(currentData);
+        string savePath = Path.Combine(saverootPath,saveFileName);
         File.WriteAllText(savePath, json);
         Debug.Log("游戏数据已保存: " + savePath);
     }
 
     public void LoadGameData()
     {
-
+        string savePath = Path.Combine(saverootPath,saveFileName);
         if (File.Exists(savePath))
         {
             string json = File.ReadAllText(savePath);
