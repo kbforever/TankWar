@@ -119,7 +119,7 @@ public class LevelManager : MonoBehaviour, IGameFeature
         {
             string resourcePath = resourceLevelPath + levelIndex+extend;
             // TextAsset textAsset = Resources.Load<TextAsset>(resourcePath);
-            TextAsset textAsset = await ResourceManager.LoadAddressable<TextAsset>(resourcePath);
+            TextAsset textAsset = await ResourceManager.AsycnLoadAddressable<TextAsset>(resourcePath);
 
             if (textAsset != null)
             {

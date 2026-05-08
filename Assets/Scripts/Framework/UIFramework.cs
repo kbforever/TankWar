@@ -52,20 +52,24 @@ public class UIFramework : MonoBehaviour, IGameFeature
             }
         }
 
-        RegisterAndLoadPanels();
+
         Subscribe<GameStateChangedEvent>(OnStateChanged);
+        RegisterAndLoadPanels();
+        
         
     }
 
 
     private async void RegisterAndLoadPanels()
     {
-
+        
+        
         await LoadAndRegisterPanel<MainMenuPanel>("MainMenuPanel");
         await LoadAndRegisterPanel<GamePanel>("GamePanel");
         await LoadAndRegisterPanel<PausePanel>("PausePanel");
         await LoadAndRegisterPanel<GameOverPanel>("GameOverPanel");
-
+        await LoadAndRegisterPanel<LoadingPanel>("LoadingPanel");
+        
         Framework.ChangeState(GameState.MainMenu);
     }
 
@@ -99,6 +103,10 @@ public class UIFramework : MonoBehaviour, IGameFeature
         else if (nextState == GameState.GameOver)
         {
             ShowPanel("GameOverPanel");
+        }
+        else if(nextState == GameState.Loading)
+        {
+            ShowPanel("LoadingPanel");
         }
     }
 
@@ -135,7 +143,7 @@ public class UIFramework : MonoBehaviour, IGameFeature
     {
         string prefabPath = "Assets/Prefabs/UI/" + typeof(T).Name;
         // GameObject prefab = ResourceManager.LoadResource<GameObject>(prefabPath);
-        GameObject prefab = await ResourceManager.LoadAddressable<GameObject>(prefabPath+".prefab");
+        GameObject prefab = await ResourceManager.AsycnLoadAddressable<GameObject>(prefabPath+".prefab");
 
         if (prefab != null)
         {

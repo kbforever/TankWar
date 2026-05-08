@@ -36,9 +36,6 @@ public class GamePanel : UIPanel
         {
             pauseButton.onClick.AddListener(OnPauseGame);
         }
-
-        UpdateScore();
-
         
     }
 
@@ -66,7 +63,7 @@ public class GamePanel : UIPanel
     public override void OnShow()
     {
         base.OnShow();
-        UpdateScore();
+
         
     }
 
@@ -95,19 +92,5 @@ public class GamePanel : UIPanel
         }
     }
 
-    private void UpdateScore()
-    {
-        if (scoreText != null && dataManager != null)
-        {
-            var data = dataManager.GetGameData();
-            if (data != null)
-            {
-                scoreText.text = "Score: " + data.playerScore;
-            }
-            else
-            {
-                scoreText.text = "Score: 0";
-            }
-        }
-    }
+
 }

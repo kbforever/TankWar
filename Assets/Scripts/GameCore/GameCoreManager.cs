@@ -4,7 +4,8 @@ using GameFramework;
 using UnityEngine;
 using LevelGeneration;
 using UnityEngine.UI;
-using System.Threading.Tasks;
+using System.Linq;
+
 
 public class GameCoreManager : MonoBehaviour, IGameFeature
 {
@@ -20,7 +21,20 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
 
 
 
-    private int maxEnemyCount;
+    private int _CurEnemyCount;
+
+    public int CurEnemyCount
+    {
+        get=>_CurEnemyCount;
+        set
+        {
+            if (_CurEnemyCount != value)
+            {
+                _CurEnemyCount=value;
+                Framework?.PublishEvent<EnemyCountChangedEvent>(new EnemyCountChangedEvent(_CurEnemyCount,Player1Health,Player2Health));
+            }
+        }
+    }
 
     private int Player1Health;
 
@@ -86,30 +100,40 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         Framework.SubscribeEvent<PlayerDieEvent>(PlayerDie);
         Framework.SubscribeEvent<EnemyDieEvent>(EnemyDie);
         
-        LoadPrefabs();
+        
     }
 
 
-    async void LoadPrefabs()
+    bool isInit=false;
+    async void LoadPrefabsAndLevels()
     {
-        string rootPrefabsPath = "Assets/Prefabs/Maps/";
-        // PlayerPrefab = ResourceManager.LoadResource<GameObject>("Prefabs/Maps/PlayerTank1");
-        PlayerPrefab = await ResourceManager.LoadAddressable<GameObject>(rootPrefabsPath+ "PlayerTank1.prefab");
-
-        // EnemyPrefab = ResourceManager.LoadResource<GameObject>("Prefabs/Maps/EnemyTank");
-        EnemyPrefab = await ResourceManager.LoadAddressable<GameObject>(rootPrefabsPath+"EnemyTank.prefab");
-
-        CellPrefabs = new GameObject[(int)LevelTileType.Base];
-        // BulletPrefab = ResourceManager.LoadResource<GameObject>("Prefabs/Maps/Bullet");
-
-        BulletPrefab = await ResourceManager.LoadAddressable<GameObject>(rootPrefabsPath+"Bullet.prefab");
-
-        for(int i = 0; i < (int)LevelTileType.Base; i++)
+        Framework.ChangeState(GameState.Loading);
+        if(!isInit)
         {
-            var tile = (LevelTileType)i;
-            if(tile==LevelTileType.EnemySpawn||tile==LevelTileType.PlayerSpawn) continue;
-            CellPrefabs[i] = await ResourceManager.LoadAddressable<GameObject>(rootPrefabsPath+tile.ToString()+".prefab");
+            
+            string rootPrefabsPath = "Assets/Prefabs/Maps/";
+            // PlayerPrefab = ResourceManager.LoadResource<GameObject>("Prefabs/Maps/PlayerTank1");
+            PlayerPrefab = await ResourceManager.AsycnLoadAddressable<GameObject>(rootPrefabsPath+ "PlayerTank1.prefab");
+
+            // EnemyPrefab = ResourceManager.LoadResource<GameObject>("Prefabs/Maps/EnemyTank");
+            EnemyPrefab = await ResourceManager.AsycnLoadAddressable<GameObject>(rootPrefabsPath+"EnemyTank.prefab");
+
+            CellPrefabs = new GameObject[(int)LevelTileType.Base];
+            // BulletPrefab = ResourceManager.LoadResource<GameObject>("Prefabs/Maps/Bullet");
+
+            BulletPrefab = await ResourceManager.AsycnLoadAddressable<GameObject>(rootPrefabsPath+"Bullet.prefab");
+
+            for(int i = 0; i < (int)LevelTileType.Base; i++)
+            {
+                var tile = (LevelTileType)i;
+                if(tile==LevelTileType.EnemySpawn||tile==LevelTileType.PlayerSpawn) continue;
+                CellPrefabs[i] = await ResourceManager.AsycnLoadAddressable<GameObject>(rootPrefabsPath+tile.ToString()+".prefab");
+            }
+            
         }
+        isInit=true;
+        levelManager.LoadLevel(currentGameData.LevelIndex);
+
     }
 
 
@@ -119,7 +143,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         enemyTanks.Remove(enemyTank);
         Destroy(enemyTank.gameObject);
         
-        if(maxEnemyCount>0) SpawnEnemyTanks(currentLevelData, cellSize,true);
+        if(CurEnemyCount>0) SpawnEnemyTanks(currentLevelData, cellSize,true);
         else
         {
             if (enemyTanks.Count <= 0)
@@ -159,6 +183,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
             Debug.LogError("Game Over");
             Framework.ChangeState(GameState.GameOver);
         }
+        Framework?.PublishEvent<EnemyCountChangedEvent>(new EnemyCountChangedEvent(CurEnemyCount,Player1Health,Player2Health));
 
     }
 
@@ -191,18 +216,18 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
                 return;
             }
 
-
+            
             if (previousState == GameState.MainMenu && levelManager.CurrentLevelIndex!=currentGameData.LevelIndex) 
             {
-                Framework.ChangeState(GameState.Loading);
-                levelManager.LoadLevel(currentGameData.LevelIndex);
+                
+                LoadPrefabsAndLevels();
+                // levelManager.LoadLevel(currentGameData.LevelIndex);
                 return;
                 
             }
             if(levelManager.CurrentLevelData != null)
             {
-                Time.timeScale = 1f;
-                inputManager.EnableMaps();
+                
                 currentLevelData = levelManager.CurrentLevelData;
 
                 
@@ -214,7 +239,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
                    
                     Player1Health = currentGameData.player1Health;
                     Player2Health = currentGameData.gameMode==GameMode.SinglePlayer? 0 : currentGameData.player2Health;
-                    maxEnemyCount = currentGameData.maxEnemyCount;
+                    CurEnemyCount = currentGameData.maxEnemyCount+currentGameData.enmeyPositions.Length;
                     // 恢复玩家位置
                     if (playerTank1 != null)
                     {
@@ -253,7 +278,8 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
                     UpdateGameData();
                 }
 
-                
+                Time.timeScale = 1f;
+                inputManager.EnableMaps();
             }
 
             
@@ -322,7 +348,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
 
         this.Player1Health= levelData.player1Health;
         this.Player2Health= levelData.player2Health;
-        this.maxEnemyCount = levelData.maxEnemyCount;
+        this.CurEnemyCount = levelData.maxEnemyCount;
         float cellSpaceSize = 5f; // 每个格子碰撞器往里收缩的大小
         Vector2 containerSize = levelContainer.rect.size;
         if (containerSize == Vector2.zero && levelContainer.parent is RectTransform parentRect)
@@ -426,7 +452,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         // GameObject tankObject = new GameObject($"PlayerTank{playerIndex}", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(BoxCollider2D), typeof(Rigidbody2D), typeof(PlayerTank));
         GameObject tankObject = Instantiate(PlayerPrefab);
         tankObject.transform.SetParent(levelContainer, false);
-        
+        tankObject.transform.SetAsFirstSibling();
         var playerTank = tankObject.AddComponent<PlayerTank>();
         playerTank?.Initialize(cellSize, spawnGrid, new Vector2Int(levelData.width, levelData.height), Color.white, playerIndex, levelData);
         return playerTank;
@@ -486,29 +512,29 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         GameObject tankObject = Instantiate(EnemyPrefab);
         
         tankObject.transform.SetParent(levelContainer, false);
-
+        tankObject.transform.SetAsFirstSibling();
         var enemyTank = tankObject.AddComponent<EnemyTank>();
         // tankObject.GetComponent<EnemyTank>();
 
-        enemyTank?.Initialize(cellSize, spawnGrid, Color.white,maxEnemyCount);
-        maxEnemyCount--;
+        enemyTank?.Initialize(cellSize, spawnGrid, Color.white,CurEnemyCount);
+        CurEnemyCount--;
         return enemyTank;
     }
 
 
-    private EnemyTank CreateEnemyTank(float cellSize,Vector2 pos, Color color)
+    private EnemyTank CreateEnemyTank(float cellSize,Vector2 pos, Color color,bool IsRestore=false)
     {
         // GameObject tankObject = new GameObject("EnemyTank", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(BoxCollider2D), typeof(Rigidbody2D), typeof(EnemyTank));
         GameObject tankObject = Instantiate(EnemyPrefab);
         
         tankObject.transform.SetParent(levelContainer,false);
-
+        tankObject.transform.SetAsFirstSibling();
         var enemyTank = tankObject.AddComponent<EnemyTank>();
         // tankObject.GetComponent<EnemyTank>();
 
-        enemyTank?.Initialize(cellSize,pos, Color.white,maxEnemyCount);
+        enemyTank?.Initialize(cellSize,pos, Color.white,CurEnemyCount);
         
-        maxEnemyCount--;
+        if(!IsRestore) CurEnemyCount--;
         
         return enemyTank;
     }
@@ -563,7 +589,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
             LevelIndex = levelManager.CurrentLevelIndex,
             player1Health = Player1Health,
             player2Health = Player2Health,
-            maxEnemyCount = maxEnemyCount
+            maxEnemyCount = CurEnemyCount
             
         };
         gameData.enmeyPositions = enemyTanks!=null? new Vector2[enemyTanks.Count] : null;
@@ -696,6 +722,8 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
     }
 
     
+
+    #region Event
     public sealed class PlayerDieEvent: GameEvent
     {
         public PlayerTank playerTank;
@@ -713,4 +741,18 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
             this.enemyTank = enemyTank;
         }
     }
+
+    public sealed class EnemyCountChangedEvent : GameEvent
+    {
+        public int enemyCount;
+        public int P1Health;
+        public int P2Health;
+        public EnemyCountChangedEvent(int enemyCount,int p1health,int p2health)
+        {
+            this.enemyCount=enemyCount;
+            this.P1Health = p1health;
+            this.P2Health = p2health;
+        }
+    }
+    #endregion
 }

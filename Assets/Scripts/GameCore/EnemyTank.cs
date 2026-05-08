@@ -1,5 +1,6 @@
 using UnityEngine;
 using Unity.VisualScripting;
+using GameFramework;
 
 
 public enum EnemyTankType
@@ -81,7 +82,7 @@ public class EnemyTank : MonoBehaviour,ITakeDamage
     private void FixedUpdate()
     {
 
-        
+        if(Framework.CurrentState!=GameState.Playing) return;
         if (!initialized || rb2d == null) return;
         // rb2d.velocity = currentVelocity;
         // currentPosition = rb2d.position;
@@ -119,7 +120,7 @@ public class EnemyTank : MonoBehaviour,ITakeDamage
     private void CheckMove()
     {
         // Debug.Log(currentDirection);
-        RaycastHit2D[] hits = Physics2D.BoxCastAll((Vector2)transform.position+currentDirection*boxSize*0.05f,boxSize*0.5f,0f,currentDirection,moveSpeed*tileSize*Time.fixedDeltaTime);
+        RaycastHit2D[] hits = Physics2D.BoxCastAll((Vector2)transform.position+currentDirection*boxSize*0.05f,boxSize,0f,currentDirection,moveSpeed*tileSize*Time.fixedDeltaTime);
         
    
         shouldMove = true;
@@ -138,8 +139,8 @@ public class EnemyTank : MonoBehaviour,ITakeDamage
             }
         }
 
-        // if(shouldMove) DrawWireBox((Vector2)transform.position+currentDirection*boxSize*0.05f,boxSize*0.5f,Color.green);
-        // else DrawWireBox((Vector2)transform.position+currentDirection*boxSize*0.05f,boxSize*0.5f,Color.red);
+        // if(shouldMove) DrawWireBox((Vector2)transform.position+currentDirection*boxSize*0.05f,boxSize,Color.green);
+        // else DrawWireBox((Vector2)transform.position+currentDirection*boxSize*0.05f,boxSize,Color.red);
         
     }
 

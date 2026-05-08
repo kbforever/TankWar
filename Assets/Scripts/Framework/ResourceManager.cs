@@ -27,11 +27,13 @@ public static class ResourceManager
     }
 
 
-    public async static Task<T> LoadAddressable<T>(string name) where T:Object
+    public async static Task<T> AsycnLoadAddressable<T>(string name) where T:Object
     {
         
         T obj = await Addressables.LoadAssetAsync<T>(name).Task;
         return obj;
         
     }
+
+    
 }

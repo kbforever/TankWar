@@ -1,10 +1,6 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using GameFramework;
-using JetBrains.Annotations;
+
 using UnityEngine;
-using UnityEngine.Assertions.Must;
+
 
 public class Bullet : MonoBehaviour
 {
@@ -55,8 +51,7 @@ public class Bullet : MonoBehaviour
         {
             collision.gameObject.GetComponent<ITakeDamage>()?.TakeDamage(1);
         }
-
-        Destroy(this.gameObject);
+        if(collision.tag != "Water") Destroy(this.gameObject);
     }
 
 
