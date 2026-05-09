@@ -23,8 +23,18 @@ MonoBehaviour:
     m_SerializedLabels:
     - Levels
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 42b89ecf27dfc4548b1044e9f1408bd1
+    m_Address: Assets/Prefabs/Effect
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 9e8a334c90716aa4997a424fbedb0a68
     m_Address: Assets/Prefabs/UI
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a248ee58acc5aef438094c4126095659
+    m_Address: Assets/Prefabs/Maps/Item
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

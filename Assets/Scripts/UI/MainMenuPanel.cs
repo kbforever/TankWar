@@ -1,161 +1,90 @@
-using UnityEngine;
-using UnityEngine.UI;
 using GameFramework;
-using TMPro;
+using UnityEngine;
 using UnityEngine.EventSystems;
-using System.Transactions;
+using UnityEngine.UI;
 
 public class MainMenuPanel : UIPanel
 {
-    private Button SinglePlayer;
-    private Button TwoPlayer;
-    private Button QuitGame;
+    private Button startGameButton;
+    private Button quitGameButton;
 
-
-    private GameObject Title;
-    // private Toggle SinglePlayer;
-    // private Toggle TwoPlayer;
     private UIFramework uiFramework;
-    private LevelManager levelManager;
     private DataManager dataManager;
-
     private InputManager inputManager;
+
     protected GameFramework.GameFramework Framework => GameFramework.GameFramework.Instance;
 
     public override void Initialize()
     {
         base.Initialize();
+
         uiFramework = Framework.GetFeature<UIFramework>();
-        levelManager = Framework.GetFeature<LevelManager>();
         dataManager = Framework.GetFeature<DataManager>();
-        inputManager =Framework.GetFeature<InputManager>();
-        // 自动获取 Button
-        SinglePlayer = transform.Find(nameof(SinglePlayer))?.GetComponent<Button>();
-        TwoPlayer = transform.Find(nameof(TwoPlayer))?.GetComponent<Button>();
-        QuitGame = transform.Find(nameof(QuitGame))?.GetComponent<Button>();
-        if (SinglePlayer != null)
+        inputManager = Framework.GetFeature<InputManager>();
+
+        startGameButton = FindButton("StartGame");
+        quitGameButton = FindButton("QuitGame");
+
+        if (startGameButton != null)
         {
-            SinglePlayer.onClick.AddListener(OnSinglePlayer);
+         
+            startGameButton.onClick.AddListener(OnStartGame);
         }
 
-        if (TwoPlayer != null)
+        if (quitGameButton != null)
         {
-            TwoPlayer.onClick.AddListener(OnTwoPlayer);
+           
+            quitGameButton.onClick.AddListener(OnQuitGame);
         }
-
-
-        // Title = transform.Find(nameof(Title)).gameObject;
-        // if (Title != null)
-        // {
-        //     SinglePlayer = Title.transform.Find(nameof(SinglePlayer))?.GetComponent<Toggle>();
-        //     TwoPlayer = Title.transform.Find(nameof(TwoPlayer))?.GetComponent<Toggle>();
-        // }
-        
-        // SinglePlayer.isOn=true;
-        
-       
-    
-
-        if (QuitGame != null)
-        {
-            QuitGame.onClick.AddListener(OnQuitGame);
-        }
-    }
-
-    void Update()
-    {
-        // if (Framework.CurrentState == GameState.MainMenu)
-        // {
-        //     if (inputManager.GetButtonDown("MoveUp") || inputManager.GetButtonDown("MoveDown"))
-        //     {
-        //         if(SinglePlayer.isOn) {TwoPlayer.isOn=true;return;}
-        //         if(TwoPlayer.isOn) {SinglePlayer.isOn = true;return;} 
-        //     }
-        //     if (inputManager.GetButtonDown("Attack"))
-        //     {
-                
-        //         if(SinglePlayer.isOn) OnSinglePlayer();
-        //         else if(TwoPlayer.isOn) OnTwoPlayer();
-        //     }
-        // }
-        
     }
 
     public override void OnShow()
     {
         base.OnShow();
-        inputManager.DisableMaps();
-        // 显示时的逻辑
-        EventSystem.current.SetSelectedGameObject(SinglePlayer.gameObject);
-       
-    }
+        inputManager?.DisableMaps();
 
-    public override void OnHide()
-    {
-        base.OnHide();
-        // 隐藏时的逻辑
+        if (startGameButton != null && EventSystem.current != null)
+        {
+            EventSystem.current.SetSelectedGameObject(startGameButton.gameObject);
+        }
     }
 
     public override void Shutdown()
     {
         base.Shutdown();
-        // if (SinglePlayer != null)
-        // {
-        //     SinglePlayer.onClick.RemoveListener(OnSinglePlayer);
-        // }
 
-        // if (TwoPlayer != null)
-        // {
-        //     TwoPlayer.onClick.RemoveListener(OnTwoPlayer);
-        // }
-
-        if (QuitGame != null)
+        if (startGameButton != null)
         {
-            QuitGame.onClick.RemoveListener(OnQuitGame);
+            startGameButton.onClick.RemoveListener(OnStartGame);
+        }
+
+        if (quitGameButton != null)
+        {
+            quitGameButton.onClick.RemoveListener(OnQuitGame);
         }
     }
 
-    private void OnSinglePlayer()
+    private Button FindButton(string buttonName)
     {
-        if (dataManager != null)
-        {
-            dataManager.SetSavePath(GameMode.SinglePlayer);
-        }
-        StartGame();
+        return transform.Find(buttonName)?.GetComponent<Button>();
     }
 
-    private void OnTwoPlayer()
+    private void OnStartGame()
     {
-        if (dataManager != null)
-        {
-            
-            dataManager.SetSavePath(GameMode.TwoPlayer);
-            
-        }
-        StartGame();
-    }
+        dataManager?.SetSavePath(GameMode.SinglePlayer);
+        inputManager?.EnableMaps(GameMode.SinglePlayer);
 
-    private void StartGame()
-    {
-        inputManager.EnableMaps(dataManager.GetGameData().gameMode);
-        // 开始游戏：切换到 Playing 状态
-        var framework = GameFramework.GameFramework.Instance;
-        if (framework != null)
+        if (Framework != null)
         {
-            framework.ChangeState(GameState.Playing);
+            Framework.ChangeState(GameState.Playing);
         }
 
-        // 隐藏主菜单（UIFramework 会自动显示 Game 面板）
-        if (uiFramework != null)
-        {
-            uiFramework.HidePanel("MainMenu");
-        }
+        uiFramework?.HidePanel(PanelName);
     }
 
     private void OnQuitGame()
     {
-        // 退出游戏
-        Debug.Log("退出游戏");
+        Debug.Log("Quit game");
         Application.Quit();
     }
 }

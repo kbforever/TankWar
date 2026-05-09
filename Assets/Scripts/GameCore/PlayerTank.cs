@@ -27,6 +27,7 @@ public class PlayerTank : MonoBehaviour,ITakeDamage
     private int playerIndex = 1;
     private bool initialized;
     private int currentHealth;
+    private bool isShielded;
 
     private bool IsAttacking;
     
@@ -233,9 +234,20 @@ public class PlayerTank : MonoBehaviour,ITakeDamage
 
     public int CurrentHealth => currentHealth;
     public int MaxHealth => maxHealth;
+    public bool IsShielded => isShielded;
+
+    public void SetShielded(bool shielded)
+    {
+        isShielded = shielded;
+    }
 
     public void TakeDamage(int damage)
     {
+        if (isShielded)
+        {
+            return;
+        }
+
         currentHealth -= damage;
         if (currentHealth <= 0)
         {
