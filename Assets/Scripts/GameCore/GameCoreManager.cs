@@ -644,20 +644,20 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
             return request.AnchoredPosition;
         }
 
-        return new Vector2((request.SpawnGrid.x-0.5f ) * cellSize, (request.SpawnGrid.y -0.5f) * cellSize);
+        return new Vector2((request.SpawnGrid.x+0.5f ) * cellSize, (request.SpawnGrid.y+0.5f) * cellSize);
     }
 
     private void SetupEffectObject(GameObject effectObject, Vector2 anchoredPosition, Transform parent)
     {
         effectObject.transform.SetParent(parent, false);
-        effectObject.transform.SetAsFirstSibling();
+        effectObject.transform.SetAsLastSibling();
 
         var rectTransform = effectObject.GetComponent<RectTransform>();
         if (rectTransform != null)
         {
             rectTransform.anchorMin = new Vector2(0f, 0f);
             rectTransform.anchorMax = new Vector2(0f, 0f);
-            rectTransform.pivot = new Vector2(0f, 0f);
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
             rectTransform.anchoredPosition = anchoredPosition;
             rectTransform.sizeDelta = anchoredPosition==Vector2.zero? new Vector2(cellSize*1.2f,cellSize*1.2f):new Vector2(cellSize,cellSize);
         }
@@ -712,7 +712,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         if (ShieldEffectPrefab != null)
         {
             shieldEffect = Instantiate(ShieldEffectPrefab);
-            SetupEffectObject(shieldEffect, Vector2.zero, playerTank.transform);
+            SetupEffectObject(shieldEffect, new Vector2(0.5f*cellSize,0.5f*cellSize), playerTank.transform);
         }
 
         yield return new WaitForSeconds(PlayerShieldDuration);

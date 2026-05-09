@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 5926281219259169306}
   - component: {fileID: 8230673713400898275}
   - component: {fileID: 4932087557509266238}
-  - component: {fileID: 2964894094764008517}
+  - component: {fileID: 6264012694193692991}
   m_Layer: 5
   m_Name: ShieldEffect
   m_TagString: Untagged
@@ -76,7 +76,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!95 &2964894094764008517
+--- !u!95 &6264012694193692991
 Animator:
   serializedVersion: 5
   m_ObjectHideFlags: 0
@@ -86,7 +86,7 @@ Animator:
   m_GameObject: {fileID: 7136534463595501337}
   m_Enabled: 1
   m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: 08420c3f9a9e4104fa92a231d1c732a4, type: 2}
+  m_Controller: {fileID: 9100000, guid: 79d727f6bbbe10444b0adecab6d7173a, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
