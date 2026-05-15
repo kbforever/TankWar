@@ -1,5 +1,5 @@
-
 using UnityEngine;
+using LevelGeneration;
 
 
 public class Bullet : MonoBehaviour
@@ -11,6 +11,7 @@ public class Bullet : MonoBehaviour
 
     private string targetTag = string.Empty;
     public string selfTag = string.Empty;
+    public bool canBreakSteel;
     void Awake()
     {
     }
@@ -45,13 +46,32 @@ public class Bullet : MonoBehaviour
 
     void OnTriggerEnter2D(Collider2D collision)
     {
+        if (collision.CompareTag(selfTag))
+        {
+            return;
+        }
 
-        if(collision.tag==this.selfTag) return;
-        if (collision.tag == targetTag)
+        RuntimeLevelTile runtimeTile = collision.GetComponent<RuntimeLevelTile>();
+        if (runtimeTile != null && runtimeTile.TileType == LevelTileType.Steel)
+        {
+            if (canBreakSteel)
+            {
+                Destroy(collision.gameObject);
+            }
+
+            Destroy(this.gameObject);
+            return;
+        }
+
+        if (collision.CompareTag(targetTag))
         {
             collision.gameObject.GetComponent<ITakeDamage>()?.TakeDamage(1);
         }
-        if(collision.tag != "Water") Destroy(this.gameObject);
+
+        if (!collision.CompareTag("Water"))
+        {
+            Destroy(this.gameObject);
+        }
     }
 
 

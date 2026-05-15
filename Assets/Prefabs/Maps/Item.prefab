@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 4214443441974895702}
   - component: {fileID: 3543685719323910733}
   - component: {fileID: 3925843571021100771}
+  - component: {fileID: 4862451324502040101}
   m_Layer: 5
   m_Name: Item
   m_TagString: Untagged
@@ -35,7 +36,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &3543685719323910733
 CanvasRenderer:
@@ -75,3 +76,23 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &4862451324502040101
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1622328894202693100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 524eec8482b34cc0b624cd4f8a2194e1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  itemType: 5
+  itemSprites:
+  - {fileID: 374964263, guid: b6aaee7aa57bc62419a5d6b0c992ccf9, type: 3}
+  - {fileID: -1419241492, guid: b6aaee7aa57bc62419a5d6b0c992ccf9, type: 3}
+  - {fileID: -414899237, guid: b6aaee7aa57bc62419a5d6b0c992ccf9, type: 3}
+  - {fileID: -74653508, guid: b6aaee7aa57bc62419a5d6b0c992ccf9, type: 3}
+  - {fileID: -693898814, guid: b6aaee7aa57bc62419a5d6b0c992ccf9, type: 3}
+  - {fileID: 960905002, guid: b6aaee7aa57bc62419a5d6b0c992ccf9, type: 3}

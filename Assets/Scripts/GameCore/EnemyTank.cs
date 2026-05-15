@@ -1,390 +1,387 @@
 using UnityEngine;
-using Unity.VisualScripting;
 using GameFramework;
+using UnityEngine.UI;
 
+public enum GameItemType
+{
+    FreezeEnemies = 0,
+    PlayerShield = 1,
+    PlayerLife = 2,
+    PlayerPower = 3,
+    DestroyAllEnemies = 4,
+    BaseInvincible = 5
+}
 
 public enum EnemyTankType
 {
     Basic,
     Fast,
-    Strong
+    Strong,
+    Heavy
 }
 
-
-public class EnemyTank : MonoBehaviour,ITakeDamage
+public class EnemyTank : TankEffectHost, ITakeDamage
 {
+    private const int BonusExtraLife = 1;
+
     [Header("Enemy Tank")]
     [SerializeField] private float moveSpeed = 3f;
     [SerializeField] private float changeDirectionTime = 2f;
     [SerializeField] private int maxHealth = 1;
     [SerializeField] private EnemyTankType tankType = EnemyTankType.Basic;
-
+    [SerializeField] private Sprite[] normalStateSprites;
+    [SerializeField] private Sprite[] bonusStateSprites;
 
     public int Id;
     public EnemyTankType TankType => tankType;
-    private RectTransform rectTransform;
+    public int CurrentHealth => currentHealth;
+    public int MaxHealth => maxHealth;
+    public bool HasBonusItem => hasBonusItem;
+    public GameItemType BonusItemType => bonusItemType;
 
-    private GameFramework.GameFramework Framework=> GameFramework.GameFramework.Instance;
+    private RectTransform rectTransform;
+    private GameFramework.GameFramework Framework => GameFramework.GameFramework.Instance;
     private Rigidbody2D rb2d;
     private BoxCollider2D boxCollider;
+    private Image tankImage;
     private Vector2 currentPosition;
     private Vector2 currentVelocity;
-  
     private float tileSize;
     private Vector2 currentDirection;
     private float directionTimer;
     private bool initialized;
     private int currentHealth;
-
     private GameObject FirePos;
+    private bool hasBonusItem;
+    private GameItemType bonusItemType;
 
-    private void Awake()
-    {
-        
-    }
+    private bool shouldMove;
+    private Vector2 boxSize;
+    private float attackCooldown = 1f;
+    private float lastAttackTime = 0f;
 
     private void Update()
     {
-        if (!initialized) return;
-        // HandleMovement();
-
-       
-      
-      
-
-        // rb2d.MovePosition(rb2d.position+currentVelocity*Time.fixedDeltaTime);
-        // currentPosition = rb2d.position;
-         directionTimer -= Time.deltaTime;
-        if (directionTimer <= 0)
+        if (!initialized || !CanRunTankLogic || Framework.GetFeature<GameCoreManager>()?.AreEnemiesFrozen() == true)
         {
-            ChangeDirection(); 
+            return;
         }
-        
+
+        directionTimer -= Time.deltaTime;
+        if (directionTimer <= 0f)
+        {
+            ChangeDirection();
+        }
+
         Attack();
     }
-
 
     public override bool Equals(object other)
     {
         EnemyTank obj = other as EnemyTank;
-        return obj.Id == this.Id;
+        return obj != null && obj.Id == Id;
     }
 
     public override int GetHashCode()
     {
-        return this.Id.GetHashCode();
+        return Id.GetHashCode();
     }
-
-
-    bool shouldMove;
-    Vector2 boxSize;
 
     private void FixedUpdate()
     {
+        if (Framework.CurrentState != GameState.Playing || !initialized || rb2d == null || !CanRunTankLogic)
+        {
+            return;
+        }
 
-        if(Framework.CurrentState!=GameState.Playing) return;
-        if (!initialized || rb2d == null) return;
-        // rb2d.velocity = currentVelocity;
-        // currentPosition = rb2d.position;
-        float targetAngle = Mathf.Atan2(currentDirection.y, currentDirection.x) * Mathf.Rad2Deg-90;
+        if (Framework.GetFeature<GameCoreManager>()?.AreEnemiesFrozen() == true)
+        {
+            rb2d.velocity = Vector2.zero;
+            return;
+        }
+
+        float targetAngle = Mathf.Atan2(currentDirection.y, currentDirection.x) * Mathf.Rad2Deg - 90f;
         if (currentDirection != Vector2.zero)
         {
-            Quaternion targetRotation = Quaternion.Euler(0, 0, targetAngle);
-            rectTransform.rotation = targetRotation;  
+            Quaternion targetRotation = Quaternion.Euler(0f, 0f, targetAngle);
+            rectTransform.rotation = targetRotation;
         }
-        CheckMove();
 
-                 // 3. 控制刚体速度
+        CheckMove();
         if (shouldMove)
         {
-            currentVelocity = moveSpeed*tileSize*currentDirection;
-            // var temp = (Vector3)currentVelocity*Time.deltaTime;
-            
-            // transform.position+=temp;
+            currentVelocity = moveSpeed * tileSize * currentDirection;
             rb2d.velocity = currentVelocity;
-            
-           
-            
         }
         else
         {
-
-            // 停止移动：将速度归零，也可以保留其他轴的速度（比如下落）
             rb2d.velocity = Vector2.zero;
         }
-
-    
     }
-
 
     private void CheckMove()
     {
-        // Debug.Log(currentDirection);
-        RaycastHit2D[] hits = Physics2D.BoxCastAll((Vector2)transform.position+currentDirection*boxSize*0.05f,boxSize,0f,currentDirection,moveSpeed*tileSize*Time.fixedDeltaTime);
-        
-   
+        RaycastHit2D[] hits = Physics2D.BoxCastAll(
+            (Vector2)transform.position + currentDirection * boxSize * 0.05f,
+            boxSize,
+            0f,
+            currentDirection,
+            moveSpeed * tileSize * Time.fixedDeltaTime);
+
         shouldMove = true;
-        foreach(var hit in hits)
+        foreach (var hit in hits)
         {
-            if (hit.collider!=null )
+            if (hit.collider == null)
             {
-                if(hit.collider.CompareTag("Bullet") || hit.collider.gameObject==this.gameObject) continue;
-                
+                continue;
+            }
 
-                if(hit.collider.CompareTag("Enemy") || hit.collider.CompareTag("Player")) shouldMove=false;
+            if (hit.collider.CompareTag("Bullet") || hit.collider.gameObject == gameObject)
+            {
+                continue;
+            }
 
-          
-            // 调试：在Scene视图中看到红色射线
-            // Debug.DrawRay(FirePos.transform.position, currentDirection.normalized * 1.5f, Color.red);
+            if (hit.collider.CompareTag("Enemy") || hit.collider.CompareTag("Player"))
+            {
+                shouldMove = false;
             }
         }
-
-        // if(shouldMove) DrawWireBox((Vector2)transform.position+currentDirection*boxSize*0.05f,boxSize,Color.green);
-        // else DrawWireBox((Vector2)transform.position+currentDirection*boxSize*0.05f,boxSize,Color.red);
-        
     }
 
-
-    // void DrawWireBox(Vector2 center, Vector2 size, Color color)
-    // {
-    //     Vector2 half = size / 2;
-    //     Vector2[] corners = new Vector2[]
-    //     {
-    //         center + new Vector2(-half.x,  half.y), // 左上
-    //         center + new Vector2( half.x,  half.y), // 右上
-    //         center + new Vector2( half.x, -half.y), // 右下
-    //         center + new Vector2(-half.x, -half.y)  // 左下
-    //     };
-    //     Debug.DrawLine(corners[0], corners[1], color);
-    //     Debug.DrawLine(corners[1], corners[2], color);
-    //     Debug.DrawLine(corners[2], corners[3], color);
-    //     Debug.DrawLine(corners[3], corners[0], color);
-    // }
-
-    public void Initialize(float tileSize, Vector2Int spawnGridPosition, Color tankColor,int id)
+    public void Initialize(float tileSize, Vector2Int spawnGridPosition, Color tankColor, int id, int restoredHealth = -1, bool restoredHasItem = false, GameItemType restoredItemType = GameItemType.FreezeEnemies)
     {
+        SetupCoreComponents(tileSize, tankColor, id, restoredHealth, restoredHasItem, restoredItemType);
 
-        rectTransform = GetComponent<RectTransform>();
-        rb2d = GetComponent<Rigidbody2D>();
-        boxCollider = GetComponent<BoxCollider2D>();
-        FirePos = transform.Find(nameof(FirePos)).gameObject;
-        if (rectTransform == null)
-        {
-            rectTransform = this.AddComponent<RectTransform>();
-        }
-
-        if (rb2d == null)
-        {
-            
-            rb2d = this.AddComponent<Rigidbody2D>();
-        }
-
-        if (boxCollider == null)
-        {
-            boxCollider = this.AddComponent<BoxCollider2D>();
-        }
-
-        this.tileSize = Mathf.Max(1f, tileSize);
-
-        this.Id = id;
-        this.currentHealth = this.maxHealth;
-
-
-        if (rb2d != null)
-        {
-            rb2d.gravityScale = 0f;
-            rb2d.freezeRotation = true;
-            rb2d.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
-            rb2d.interpolation = RigidbodyInterpolation2D.Interpolate;
-            rb2d.velocity = Vector2.zero;
-           
-            
-        }
-
-        if (boxCollider != null)
-        {
-            boxCollider.size = new Vector2(this.tileSize, this.tileSize);
-            boxCollider.offset = new Vector2(0, 0);
-        }
-
-        rectTransform.anchorMin = new Vector2(0, 0);
-        rectTransform.anchorMax = new Vector2(0, 0);
-        rectTransform.pivot = new Vector2(0.5f, 0.5f);
-
-        currentPosition = new Vector2((spawnGridPosition.x+0.5f) * this.tileSize, (spawnGridPosition.y+0.5f) * this.tileSize);
+        currentPosition = new Vector2((spawnGridPosition.x + 0.5f) * this.tileSize, (spawnGridPosition.y + 0.5f) * this.tileSize);
         rectTransform.anchoredPosition = currentPosition;
         rectTransform.sizeDelta = new Vector2(this.tileSize, this.tileSize);
-        this.boxSize = rectTransform.sizeDelta;
-        if (rb2d != null)
-        {
-            rb2d.position = currentPosition;
-        }
+        boxSize = rectTransform.sizeDelta;
+        rb2d.position = currentPosition;
 
-        var image = GetComponent<UnityEngine.UI.Image>();
-        if (image != null)
-        {
-            image.color = tankColor;
-        }
-
-        // 初始随机方向
         ChangeDirection();
-
         initialized = true;
+        BeginSpawnSequence();
     }
 
-
-     public void Initialize(float tileSize, Vector2 pos,Color tankColor,int id)
+    public void Initialize(float tileSize, Vector2 pos, Color tankColor, int id, int restoredHealth = -1, bool restoredHasItem = false, GameItemType restoredItemType = GameItemType.FreezeEnemies)
     {
-
-        rectTransform = GetComponent<RectTransform>();
-        rb2d = GetComponent<Rigidbody2D>();
-        boxCollider = GetComponent<BoxCollider2D>();
-        FirePos = transform.Find(nameof(FirePos)).gameObject;
-        if (rectTransform == null)
-        {
-            rectTransform = this.AddComponent<RectTransform>();
-        }
-
-        if (rb2d == null)
-        {
-            
-            rb2d = this.AddComponent<Rigidbody2D>();
-        }
-
-        if (boxCollider == null)
-        {
-            boxCollider = this.AddComponent<BoxCollider2D>();
-        }
-
-        this.tileSize = Mathf.Max(1f, tileSize);
-
-        this.Id = id;
-        this.currentHealth = this.maxHealth;
-
-        if (rb2d != null)
-        {
-            rb2d.gravityScale = 0f;
-            rb2d.freezeRotation = true;
-            rb2d.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
-            rb2d.interpolation = RigidbodyInterpolation2D.Interpolate;
-            rb2d.velocity = Vector2.zero;
-        }
-
-        if (boxCollider != null)
-        {
-            boxCollider.size = new Vector2(this.tileSize, this.tileSize);
-            boxCollider.offset = new Vector2(0, 0);
-        }
-
-        rectTransform.anchorMin = new Vector2(0, 0);
-        rectTransform.anchorMax = new Vector2(0, 0);
-        rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        SetupCoreComponents(tileSize, tankColor, id, restoredHealth, restoredHasItem, restoredItemType);
 
         currentPosition = pos;
         rectTransform.anchoredPosition = currentPosition;
         rectTransform.sizeDelta = new Vector2(this.tileSize, this.tileSize);
-        this.boxSize = new Vector2(this.tileSize,this.tileSize);
-        if (rb2d != null)
-        {
-            rb2d.position = currentPosition;
-        }
+        boxSize = new Vector2(this.tileSize, this.tileSize);
+        rb2d.position = currentPosition;
 
-        var image = GetComponent<UnityEngine.UI.Image>();
-        if (image != null)
-        {
-            image.color = tankColor;
-        }
-
-        // 初始随机方向
         ChangeDirection();
-
         initialized = true;
+        BeginSpawnSequence();
     }
 
-
-    
-    private void HandleMovement()
+    private void SetupCoreComponents(float tileSize, Color tankColor, int id, int restoredHealth, bool restoredHasItem, GameItemType restoredItemType)
     {
-        
-        
-        Vector2 desiredVelocity = currentDirection * moveSpeed * tileSize;
-        Vector2 predictedPosition = currentPosition + desiredVelocity * Time.deltaTime;
+        rectTransform = GetComponent<RectTransform>();
+        rb2d = GetComponent<Rigidbody2D>();
+        boxCollider = GetComponent<BoxCollider2D>();
+        tankImage = GetComponent<UnityEngine.UI.Image>();
+        FirePos = transform.Find(nameof(FirePos)).gameObject;
 
-        
-       
-        int newGridX = Mathf.RoundToInt(predictedPosition.x / tileSize);
-        int newGridY = Mathf.RoundToInt(predictedPosition.y / tileSize);
+        if (rectTransform == null)
+        {
+            rectTransform = gameObject.AddComponent<RectTransform>();
+        }
 
-        
+        if (rb2d == null)
+        {
+            rb2d = gameObject.AddComponent<Rigidbody2D>();
+        }
 
+        if (boxCollider == null)
+        {
+            boxCollider = gameObject.AddComponent<BoxCollider2D>();
+        }
 
-        
+        this.tileSize = Mathf.Max(1f, tileSize);
+        Id = id;
+        currentVelocity = Vector2.zero;
+        lastAttackTime = 0f;
+        hasBonusItem = restoredHasItem;
+        bonusItemType = restoredItemType;
+        currentHealth = ResolveInitialHealth(restoredHealth, restoredHasItem);
 
-        currentVelocity = desiredVelocity;
-      
-  
-        
+        rb2d.gravityScale = 0f;
+        rb2d.freezeRotation = true;
+        rb2d.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        rb2d.interpolation = RigidbodyInterpolation2D.Interpolate;
+        rb2d.velocity = Vector2.zero;
+
+        boxCollider.size = new Vector2(this.tileSize, this.tileSize);
+        boxCollider.offset = Vector2.zero;
+
+        rectTransform.anchorMin = Vector2.zero;
+        rectTransform.anchorMax = Vector2.zero;
+        rectTransform.pivot = new Vector2(0.5f, 0.5f);
+
+        InitializeEffectHost(rectTransform, rb2d, boxCollider, this.tileSize);
+        RefreshVisualState();
     }
 
-    private float attackCooldown = 1f;
-    private float lastAttackTime = 0f;
     private void Attack()
     {
-        // 这里可以实现攻击逻辑，例如发射子弹等
-        
         lastAttackTime -= Time.deltaTime;
         if (lastAttackTime <= 0f)
         {
             lastAttackTime = attackCooldown;
-            Framework.PublishEvent<GameCoreManager.BulletEvent>(new GameCoreManager.BulletEvent(FirePos));
-             // 可以在这里添加攻击逻辑，例如实例化子弹等
+            Framework.PublishEvent(new GameCoreManager.BulletEvent(FirePos));
         }
     }
 
-
-
     private void OnCollisionEnter2D(Collision2D collision)
     {
-        if (collision.collider != null )
+        if (collision.collider == null)
         {
-            currentVelocity = Vector2.zero;
-            if (rb2d != null)
-            {
-                rb2d.velocity = Vector2.zero;
-            }
+            return;
         }
-        
+
+        currentVelocity = Vector2.zero;
+        if (rb2d != null)
+        {
+            rb2d.velocity = Vector2.zero;
+        }
     }
 
     private void ChangeDirection()
     {
-        // 随机选择方向：上、下、左、右
         int dir = Random.Range(0, 4);
         switch (dir)
         {
-            case 0: currentDirection = Vector2.up; break;
-            case 1: currentDirection = Vector2.down; break;
-            case 2: currentDirection = Vector2.left; break;
-            case 3: currentDirection = Vector2.right; break;
+            case 0:
+                currentDirection = Vector2.up;
+                break;
+            case 1:
+                currentDirection = Vector2.down;
+                break;
+            case 2:
+                currentDirection = Vector2.left;
+                break;
+            default:
+                currentDirection = Vector2.right;
+                break;
         }
+
         changeDirectionTime = Random.Range(1f, 3f);
         directionTimer = changeDirectionTime;
     }
 
-
-
     public void TakeDamage(int damage)
     {
-        this.currentHealth -= damage;
-        if (this.currentHealth <= 0)
+        if (IsDeathSequenceTriggered)
         {
-            this.currentHealth = 0;
-            // 可以在这里添加死亡逻辑
-           
-            Framework.PublishEvent<GameCoreManager.EnemyDieEvent>(new GameCoreManager.EnemyDieEvent(this));
-            
+            return;
+        }
+
+        currentHealth -= damage;
+
+        if (hasBonusItem && currentHealth > 0 && currentHealth <= maxHealth)
+        {
+            hasBonusItem = false;
+            currentHealth = Mathf.Clamp(currentHealth, 1, maxHealth);
+            GameCoreManager manager = Framework.GetFeature<GameCoreManager>();
+            if (manager != null && rectTransform != null)
+            {
+                manager.SpawnDroppedItem(rectTransform.anchoredPosition, bonusItemType);
+            }
+        }
+
+        RefreshVisualState();
+        if (currentHealth <= 0)
+        {
+            currentHealth = 0;
+            TriggerDieEffect();
+            Framework.PublishEvent(new GameCoreManager.EnemyDieEvent(this));
         }
     }
 
+    public void ConfigureBonusItem(bool value, GameItemType itemType)
+    {
+        hasBonusItem = value;
+        bonusItemType = itemType;
+        RefreshVisualState();
+    }
 
+    private void RefreshVisualState()
+    {
+        if (tankImage == null)
+        {
+            return;
+        }
+
+        tankImage.color = Color.white;
+        Sprite sprite = GetCurrentSprite();
+        if (sprite != null)
+        {
+            tankImage.sprite = sprite;
+        }
+
+        UpdateHeavyScale();
+    }
+
+    private Sprite GetCurrentSprite()
+    {
+        if (hasBonusItem && currentHealth > maxHealth && bonusStateSprites != null && bonusStateSprites.Length > 0)
+        {
+            return bonusStateSprites[0];
+        }
+
+        if (normalStateSprites == null || normalStateSprites.Length == 0)
+        {
+            return null;
+        }
+
+        int spriteIndex = tankType == EnemyTankType.Heavy
+            ? Mathf.Clamp(maxHealth - currentHealth, 0, normalStateSprites.Length - 1)
+            : Mathf.Clamp(maxHealth - currentHealth, 0, normalStateSprites.Length - 1);
+
+        return normalStateSprites[spriteIndex];
+    }
+
+    private void UpdateHeavyScale()
+    {
+        if (rectTransform == null)
+        {
+            return;
+        }
+
+        float scale = 1f;
+        if (tankType == EnemyTankType.Heavy && maxHealth > 0)
+        {
+            if (hasBonusItem && currentHealth > maxHealth)
+            {
+                scale = 1.14f;
+            }
+            else
+            {
+                float ratio = Mathf.Clamp01((float)currentHealth / maxHealth);
+                scale = ratio switch
+                {
+                    > 0.66f => 1.1f,
+                    > 0.33f => 1.02f,
+                    _ => 0.92f
+                };
+            }
+        }
+
+        rectTransform.localScale = new Vector3(scale, scale, 1f);
+    }
+
+    private int ResolveInitialHealth(int restoredHealth, bool restoredHasItem)
+    {
+        int totalHealth = maxHealth + (restoredHasItem ? BonusExtraLife : 0);
+        if (restoredHealth > 0)
+        {
+            return Mathf.Clamp(restoredHealth, 1, totalHealth);
+        }
+
+        return totalHealth;
+    }
 }

@@ -86,8 +86,9 @@ GameObject:
   - component: {fileID: 7618242523613403561}
   - component: {fileID: 5756870148976626520}
   - component: {fileID: 1562558068568267909}
+  - component: {fileID: 3749087041330237843}
   m_Layer: 5
-  m_Name: EnemyTank
+  m_Name: EnemyTankFast
   m_TagString: Enemy
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -130,6 +131,27 @@ MonoBehaviour:
   m_GameObject: {fileID: 7182258331130206531}
   m_Enabled: 1
   m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d47bab93ba7df8d4e92adfe8e6a88285, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  moveSpeed: 4.5
+  changeDirectionTime: 1.6
+  maxHealth: 1
+  tankType: 1
+  normalStateSprites:
+  - {fileID: 509050065, guid: 77ad389082836bc4d9d8d3b8ee8f7d7f, type: 3}
+  bonusStateSprites:
+  - {fileID: -1720090779, guid: 77ad389082836bc4d9d8d3b8ee8f7d7f, type: 3}
+  Id: 0
+--- !u!114 &3749087041330237843
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7182258331130206531}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
@@ -141,7 +163,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 193143574, guid: 77ad389082836bc4d9d8d3b8ee8f7d7f, type: 3}
+  m_Sprite: {fileID: 509050065, guid: 77ad389082836bc4d9d8d3b8ee8f7d7f, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1

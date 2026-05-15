@@ -77,4 +77,14 @@ namespace LevelGeneration
             return x >= 0 && x < width && y >= 0 && y < height;
         }
     }
+
+    public class RuntimeLevelTile : MonoBehaviour
+    {
+        [field: SerializeField] public LevelTileType TileType { get; private set; }
+
+        public void Initialize(LevelTileType tileType)
+        {
+            TileType = tileType;
+        }
+    }
 }

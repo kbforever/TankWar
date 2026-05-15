@@ -1,18 +1,18 @@
-
+using System.Collections;
 using System.Collections.Generic;
 using GameFramework;
-using UnityEngine;
 using LevelGeneration;
+using UnityEngine;
 using UnityEngine.UI;
-using System.Linq;
-using System.Collections;
-
 
 public class GameCoreManager : MonoBehaviour, IGameFeature
 {
+    private const float FreezeDuration = 5f;
+    private const float RandomItemSpawnIntervalMin = 12f;
+    private const float RandomItemSpawnIntervalMax = 20f;
+    private const int MaxMapItems = 2;
 
-
-    private GameFramework.GameFramework Framework=>GameFramework.GameFramework.Instance;
+    private GameFramework.GameFramework Framework => GameFramework.GameFramework.Instance;
     private DataManager dataManager;
     private InputManager inputManager;
     private LevelManager levelManager;
@@ -20,40 +20,39 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
     private PlayerTank playerTank1;
     private PlayerTank playerTank2;
 
-
-
     private int _CurEnemyCount;
-
     public int CurEnemyCount
     {
-        get=>_CurEnemyCount;
+        get => _CurEnemyCount;
         set
         {
             if (_CurEnemyCount != value)
             {
-                _CurEnemyCount=value;
-                Framework?.PublishEvent<EnemyCountChangedEvent>(new EnemyCountChangedEvent(_CurEnemyCount,Player1Health,Player2Health));
+                _CurEnemyCount = value;
+                Framework?.PublishEvent(new EnemyCountChangedEvent(_CurEnemyCount, Player1Health, Player2Health));
             }
         }
     }
 
     private int Player1Health;
-
     private int Player2Health;
+    private int Player1PowerLevel;
+    private int Player2PowerLevel;
 
     private float cellSize;
+    private float frozenEnemyTimer;
+    private float randomItemSpawnTimer;
     private List<Vector2Int> spawnEnemyPoints;
     private List<Vector2Int> spawnPlayerPoints;
 
     private GameMode currentGameMode;
-    private GameData currentGameData=> dataManager.GetGameData();
+    private GameData currentGameData => dataManager.GetGameData();
     private LevelData currentLevelData;
     private readonly List<GameObject> levelCells = new List<GameObject>();
     public List<EnemyTank> enemyTanks = new List<EnemyTank>();
+    private readonly List<GameItem> activeItems = new List<GameItem>();
     private readonly List<GameObject> boundaryObjects = new List<GameObject>();
     private int spawnContextVersion;
-    private const float TankSpawnEffectDuration = 1.5f;
-    private const float PlayerShieldDuration = 1.5f;
 
     private enum TankSpawnKind
     {
@@ -72,39 +71,54 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         public Color Color;
         public int PlayerIndex;
         public int EnemyId;
-        public bool ConsumeEnemyCount;
+        public EnemyTankType EnemyType;
+        public int EnemyHealth;
+        public bool EnemyHasBonusItem;
+        public GameItemType EnemyBonusItemType;
         public int SpawnContextVersion;
     }
 
-
-
     #region Prefabs
     private GameObject PlayerPrefab;
-    private GameObject EnemyPrefab;
-    private GameObject SpawnEffectPrefab;
-    private GameObject ShieldEffectPrefab;
-    private GameObject DieEffectPrefab;
-
+    private readonly Dictionary<EnemyTankType, GameObject> enemyPrefabs = new Dictionary<EnemyTankType, GameObject>();
     private GameObject BulletPrefab;
+    private GameObject ItemPrefab;
     private GameObject[] CellPrefabs;
-
     #endregion
 
-    public bool IsActive{get;private set;}
+    public bool IsActive { get; private set; }
 
     public void FeatureFixedUpdate()
     {
-        
     }
 
     public void FeatureLateUpdate()
     {
-        
     }
 
     public void FeatureUpdate()
     {
-       
+        if (frozenEnemyTimer > 0f)
+        {
+            frozenEnemyTimer -= Time.deltaTime;
+        }
+
+        if (Framework.CurrentState != GameState.Playing || currentLevelData == null)
+        {
+            return;
+        }
+
+        if (activeItems.Count >= MaxMapItems)
+        {
+            return;
+        }
+
+        // randomItemSpawnTimer -= Time.deltaTime;
+        // if (randomItemSpawnTimer <= 0f)
+        // {
+        //     TrySpawnRandomMapItem();
+        //     ResetRandomItemSpawnTimer();
+        // }
     }
 
     public void Initialize()
@@ -115,109 +129,110 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         levelManager = Framework.GetFeature<LevelManager>();
         inputManager = Framework.GetFeature<InputManager>();
         currentLevelData = null;
+
         if (levelManager != null)
         {
             Framework?.SubscribeEvent<LevelManager.LevelLoadedEvent>(OnLevelLoaded);
         }
 
-
-        Framework.SubscribeEvent<GameStateChangedEvent>(onGameStateChanged);
-
-
+        Framework.SubscribeEvent<GameStateChangedEvent>(OnFrameworkGameStateChanged);
         Framework.SubscribeEvent<BulletEvent>(CreateBullet);
         Framework.SubscribeEvent<PlayerDieEvent>(PlayerDie);
         Framework.SubscribeEvent<EnemyDieEvent>(EnemyDie);
-        
-        
     }
 
-
-    bool isInit=false;
-    async void LoadPrefabsAndLevels()
+    private bool isInit = false;
+    private async void LoadPrefabsAndLevels()
     {
         Framework.ChangeState(GameState.Loading);
-        if(!isInit)
+        if (!isInit)
         {
-            
             string rootPrefabsPath = "Assets/Prefabs/Maps/";
-            // PlayerPrefab = ResourceManager.LoadResource<GameObject>("Prefabs/Maps/PlayerTank1");
-            PlayerPrefab = await ResourceManager.AsycnLoadAddressable<GameObject>(rootPrefabsPath+ "PlayerTank1.prefab");
+            PlayerPrefab = await ResourceManager.AsycnLoadAddressable<GameObject>(rootPrefabsPath + "PlayerTank1.prefab");
 
-            // EnemyPrefab = ResourceManager.LoadResource<GameObject>("Prefabs/Maps/EnemyTank");
-            EnemyPrefab = await ResourceManager.AsycnLoadAddressable<GameObject>(rootPrefabsPath+"EnemyTank.prefab");
-            SpawnEffectPrefab = await ResourceManager.AsycnLoadAddressable<GameObject>("Assets/Prefabs/Effect/SpawnEffect.prefab");
-            ShieldEffectPrefab = await ResourceManager.AsycnLoadAddressable<GameObject>("Assets/Prefabs/Effect/ShieldEffect.prefab");
-            DieEffectPrefab = await ResourceManager.AsycnLoadAddressable<GameObject>("Assets/Prefabs/Effect/DieEffect.prefab");
+            enemyPrefabs.Clear();
+            enemyPrefabs[EnemyTankType.Basic] = await ResourceManager.AsycnLoadAddressable<GameObject>(rootPrefabsPath + "EnemyTankBasic.prefab");
+            enemyPrefabs[EnemyTankType.Fast] = await ResourceManager.AsycnLoadAddressable<GameObject>(rootPrefabsPath + "EnemyTankFast.prefab");
+            enemyPrefabs[EnemyTankType.Strong] = await ResourceManager.AsycnLoadAddressable<GameObject>(rootPrefabsPath + "EnemyTankStrong.prefab");
+            enemyPrefabs[EnemyTankType.Heavy] = await ResourceManager.AsycnLoadAddressable<GameObject>(rootPrefabsPath + "EnemyTankHeavy.prefab");
+
+            BulletPrefab = await ResourceManager.AsycnLoadAddressable<GameObject>(rootPrefabsPath + "Bullet.prefab");
+            ItemPrefab = await ResourceManager.AsycnLoadAddressable<GameObject>(rootPrefabsPath + "Item.prefab");
 
             CellPrefabs = new GameObject[(int)LevelTileType.Base];
-            // BulletPrefab = ResourceManager.LoadResource<GameObject>("Prefabs/Maps/Bullet");
-
-            BulletPrefab = await ResourceManager.AsycnLoadAddressable<GameObject>(rootPrefabsPath+"Bullet.prefab");
-
-            for(int i = 0; i < (int)LevelTileType.Base; i++)
+            for (int i = 0; i < (int)LevelTileType.Base; i++)
             {
-                var tile = (LevelTileType)i;
-                if(tile==LevelTileType.EnemySpawn||tile==LevelTileType.PlayerSpawn) continue;
-                CellPrefabs[i] = await ResourceManager.AsycnLoadAddressable<GameObject>(rootPrefabsPath+tile.ToString()+".prefab");
+                LevelTileType tile = (LevelTileType)i;
+                if (tile == LevelTileType.EnemySpawn || tile == LevelTileType.PlayerSpawn)
+                {
+                    continue;
+                }
+
+                CellPrefabs[i] = await ResourceManager.AsycnLoadAddressable<GameObject>(rootPrefabsPath + tile + ".prefab");
             }
-            
         }
-        isInit=true;
+
+        isInit = true;
         levelManager.LoadLevel(currentGameData.LevelIndex);
-
     }
-
 
     private void EnemyDie(EnemyDieEvent enemyDieEvent)
     {
         EnemyTank enemyTank = enemyDieEvent.enemyTank;
         enemyTanks.Remove(enemyTank);
-        PlayTankDieEffect(enemyTank);
+
         Destroy(enemyTank.gameObject);
-        
-        if(CurEnemyCount>0) SpawnEnemyTanks(currentLevelData, cellSize,true);
-        else
+
+        if (CurEnemyCount > 0)
         {
-            if (enemyTanks.Count <= 0)
-            {
-                 // 游戏胜利 如:跳入下一关 or 显示胜利界面
-                Debug.Log("You Win!");
-                dataManager.SetGameData(new GameData()
-                {
-                    gameMode = currentGameMode
-                });
-                Framework.ChangeState(GameState.Loading);
-                levelManager.LoadNextLevel();
-            }
-           
+            SpawnEnemyTanks(currentLevelData, cellSize, true);
+        }
+        else if (enemyTanks.Count <= 0)
+        {
+            dataManager.SetGameData(new GameData { gameMode = currentGameMode });
+            Framework.ChangeState(GameState.Loading);
+            levelManager.LoadNextLevel();
         }
     }
 
     private void PlayerDie(PlayerDieEvent playerDieEvent)
     {
-        var playerTank = playerDieEvent.playerTank;
-        PlayTankDieEffect(playerTank);
+        PlayerTank playerTank = playerDieEvent.playerTank;
         if (playerTank == playerTank1)
         {
+            Player1PowerLevel = playerTank.PowerLevel;
             Player1Health--;
-            if(Player1Health>0) CreatePlayerTank(currentLevelData, cellSize, spawnPlayerPoints[0], Color.green, 1, tank => playerTank1 = tank);
+            if (Player1Health > 0)
+            {
+                CreatePlayerTank(currentLevelData, cellSize, spawnPlayerPoints[0], Color.white, 1, tank =>
+                {
+                    playerTank1 = tank;
+                    playerTank1.RestoreState(Mathf.Max(1, Player1Health), Player1PowerLevel);
+                });
+            }
         }
-        if(playerTank == playerTank2)
+
+        if (playerTank == playerTank2)
         {
+            Player2PowerLevel = playerTank.PowerLevel;
             Player2Health--;
-            if(Player2Health>0) CreatePlayerTank(currentLevelData, cellSize, spawnPlayerPoints[1], Color.blue, 2, tank => playerTank2 = tank);
+            if (Player2Health > 0)
+            {
+                CreatePlayerTank(currentLevelData, cellSize, spawnPlayerPoints[1], Color.blue, 2, tank =>
+                {
+                    playerTank2 = tank;
+                    playerTank2.RestoreState(Mathf.Max(1, Player2Health), Player2PowerLevel);
+                });
+            }
         }
 
         Destroy(playerTank.gameObject);
-        Debug.LogError(Player1Health+"_"+Player2Health);
-        if(Player1Health<=0 && Player2Health<=0)
+        if (Player1Health <= 0 && Player2Health <= 0)
         {
-            
-            Debug.LogError("Game Over");
             Framework.ChangeState(GameState.GameOver);
         }
-        Framework?.PublishEvent<EnemyCountChangedEvent>(new EnemyCountChangedEvent(CurEnemyCount,Player1Health,Player2Health));
 
+        Framework?.PublishEvent(new EnemyCountChangedEvent(CurEnemyCount, Player1Health, Player2Health));
     }
 
     private void CreateBullet(BulletEvent bulletEvent)
@@ -225,9 +240,9 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         CreateBullet(bulletEvent.gameObject);
     }
 
-    private void onGameStateChanged(GameStateChangedEvent changeevent)
+    private void OnFrameworkGameStateChanged(GameStateChangedEvent changeevent)
     {
-        OnGameStateChanged(changeevent.PreviousState,changeevent.NextState);
+        OnGameStateChanged(changeevent.PreviousState, changeevent.NextState);
     }
 
     private void OnLevelLoaded(LevelManager.LevelLoadedEvent levelEvent)
@@ -235,118 +250,76 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         RenderLevel(levelEvent.LevelData);
     }
 
-
-
     public void OnGameStateChanged(GameState previousState, GameState nextState)
     {
         if (nextState == GameState.Playing)
         {
             currentGameMode = currentGameData.gameMode;
-            if(previousState == GameState.Paused)
+            if (previousState == GameState.Paused)
             {
                 inputManager.EnableMaps();
                 Time.timeScale = 1f;
                 return;
             }
 
-            
-            if (previousState == GameState.MainMenu && levelManager.CurrentLevelIndex!=currentGameData.LevelIndex) 
+            if (previousState == GameState.MainMenu && levelManager.CurrentLevelIndex != currentGameData.LevelIndex)
             {
-                
                 LoadPrefabsAndLevels();
-                // levelManager.LoadLevel(currentGameData.LevelIndex);
                 return;
-                
             }
-            if(levelManager.CurrentLevelData != null)
+
+            if (levelManager.CurrentLevelData == null)
             {
-                
-                currentLevelData = levelManager.CurrentLevelData;
-
-                
-                
-                if(currentGameData.enmeyPositions != null && currentGameData.player1Health>0)
-                {
-                    RenderLevel(currentLevelData,false);
-
-                   
-                    Player1Health = currentGameData.player1Health;
-                    Player2Health = currentGameData.gameMode==GameMode.SinglePlayer? 0 : currentGameData.player2Health;
-                    CurEnemyCount = currentGameData.maxEnemyCount+currentGameData.enmeyPositions.Length;
-                    // 恢复玩家位置
-                    if (playerTank1 != null)
-                    {
-                        playerTank1.GetComponent<RectTransform>().anchoredPosition = currentGameData.player1Position;
-                        if(Player1Health<=0)
-                        {
-                            Destroy(playerTank1.gameObject);
-                            playerTank1 = null;
-                        }
-                    }
-                    if (playerTank2 != null)
-                    {
-                        playerTank2.GetComponent<RectTransform>().anchoredPosition = currentGameData.player2Position;
-                        if(Player2Health<=0)
-                        {
-                            Destroy(playerTank2.gameObject);
-                            playerTank2 = null;
-                        }
-                    }
-                    
-                    
-                    enemyTanks.Clear();
-                    // 恢复敌人位置
-                    for (int i = 0; i < currentGameData.enmeyPositions.Length; i++)
-                    {
-                        CreateEnemyTank(cellSize,currentGameData.enmeyPositions[i], Color.white, false, tank => enemyTanks.Add(tank));
-                    }
-                }
-                else
-                {
-                    RenderLevel(currentLevelData);
-                    
-                    UpdateGameData();
-                }
-
-                Time.timeScale = 1f;
-                inputManager.EnableMaps();
+                return;
             }
 
-            
+            currentLevelData = levelManager.CurrentLevelData;
+            if (currentGameData.enmeyPositions != null && currentGameData.player1Health > 0)
+            {
+                RenderLevel(currentLevelData, false);
 
-         
-            
+                Player1Health = currentGameData.player1Health;
+                Player2Health = currentGameData.gameMode == GameMode.SinglePlayer ? 0 : currentGameData.player2Health;
+                Player1PowerLevel = currentGameData.player1PowerLevel;
+                Player2PowerLevel = currentGameData.gameMode == GameMode.SinglePlayer ? 0 : currentGameData.player2PowerLevel;
+                CurEnemyCount = currentGameData.maxEnemyCount + currentGameData.enmeyPositions.Length;
+
+                RestorePlayersFromSave();
+                RestoreEnemiesFromSave();
+                RestoreItemsFromSave();
+            }
+            else
+            {
+                RenderLevel(currentLevelData);
+                UpdateGameData();
+            }
+
+            Time.timeScale = 1f;
+            inputManager.EnableMaps();
         }
         else if (nextState == GameState.Paused)
         {
             Time.timeScale = 0f;
             inputManager.DisableMaps();
             UpdateGameData();
-            
-            
         }
         else if (nextState == GameState.GameOver)
         {
             Time.timeScale = 0f;
             inputManager.DisableMaps();
+            ClearPlayerTank();
+            ClearEnemyTanks();
+            ClearItems();
             UpdateGameData();
-            
         }
-        
-        
-        
     }
 
-    void OnApplicationQuit()
+    private void OnApplicationQuit()
     {
         if (Framework != null)
         {
             Framework.UnsubscribeEvent<LevelManager.LevelLoadedEvent>(OnLevelLoaded);
-
-            
-            Framework.UnsubscribeEvent<GameStateChangedEvent>(onGameStateChanged);
-
-
+            Framework.UnsubscribeEvent<GameStateChangedEvent>(OnFrameworkGameStateChanged);
             Framework.UnsubscribeEvent<BulletEvent>(CreateBullet);
         }
 
@@ -355,32 +328,41 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
             UpdateGameData();
             dataManager.SaveGameData();
         }
-        
-        
+
         ClearLevelCells();
         ClearPlayerTank();
         ClearEnemyTanks();
+        ClearItems();
         ClearBoundaryObjects();
     }
+
     public void Shutdown()
     {
-        
     }
 
-    private void RenderLevel(LevelData levelData,bool GenEnemy = true)
+    private void RenderLevel(LevelData levelData, bool genEnemy = true)
     {
-        if (levelContainer == null || levelData == null) return;
+        if (levelContainer == null || levelData == null)
+        {
+            return;
+        }
 
         spawnContextVersion++;
         ClearLevelCells();
         ClearPlayerTank();
+        ClearItems();
         ClearBoundaryObjects();
         ClearEnemyTanks();
 
-        this.Player1Health= levelData.player1Health;
-        this.Player2Health= levelData.player2Health;
-        this.CurEnemyCount = levelData.maxEnemyCount;
-        float cellSpaceSize = 5f; // 每个格子碰撞器往里收缩的大小
+        Player1Health = levelData.player1Health;
+        Player2Health = levelData.player2Health;
+        Player1PowerLevel = 0;
+        Player2PowerLevel = 0;
+        CurEnemyCount = levelData.maxEnemyCount;
+        frozenEnemyTimer = 0f;
+        ResetRandomItemSpawnTimer();
+
+        float cellSpaceSize = 5f;
         Vector2 containerSize = levelContainer.rect.size;
         if (containerSize == Vector2.zero && levelContainer.parent is RectTransform parentRect)
         {
@@ -395,7 +377,6 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         float cellWidth = containerSize.x / levelData.width;
         float cellHeight = containerSize.y / levelData.height;
         cellSize = Mathf.Min(cellWidth, cellHeight);
-        // levelContainer.sizeDelta = new Vector2(cellSize * levelData.width, cellSize * levelData.height);
 
         spawnEnemyPoints = new List<Vector2Int>();
         spawnPlayerPoints = new List<Vector2Int>();
@@ -408,25 +389,28 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
                 {
                     spawnEnemyPoints.Add(new Vector2Int(x, y));
                 }
+
                 if (levelData.GetTile(x, y) == LevelTileType.PlayerSpawn)
                 {
                     spawnPlayerPoints.Add(new Vector2Int(x, y));
                 }
-                var tileType = levelData.GetTile(x, y);
-                var cell = CreateCell(tileType);
+
+                LevelTileType tileType = levelData.GetTile(x, y);
+                GameObject cell = CreateCell(tileType);
                 cell.name = $"Tile_{x}_{y}";
                 cell.transform.SetParent(levelContainer, false);
-                var rectTransform = cell.GetComponent<RectTransform>();
-                rectTransform.anchorMin = new Vector2(0, 0);
-                rectTransform.anchorMax = new Vector2(0, 0);
-                rectTransform.pivot = new Vector2(0, 0); 
+
+                RectTransform rectTransform = cell.GetComponent<RectTransform>();
+                rectTransform.anchorMin = Vector2.zero;
+                rectTransform.anchorMax = Vector2.zero;
+                rectTransform.pivot = Vector2.zero;
                 rectTransform.anchoredPosition = new Vector2(x * cellSize, y * cellSize);
                 rectTransform.sizeDelta = new Vector2(cellSize, cellSize);
 
-                var obstacleCollider = cell.GetComponent<BoxCollider2D>();
+                BoxCollider2D obstacleCollider = cell.GetComponent<BoxCollider2D>();
                 if (obstacleCollider != null)
                 {
-                    obstacleCollider.size = new Vector2(cellSize-cellSpaceSize, cellSize-cellSpaceSize);
+                    obstacleCollider.size = new Vector2(cellSize - cellSpaceSize, cellSize - cellSpaceSize);
                     obstacleCollider.offset = new Vector2(cellSize / 2f, cellSize / 2f);
                 }
 
@@ -436,155 +420,134 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
 
         CreateBoundary(levelData, cellSize);
         SpawnPlayerTank(levelData, cellSize);
-        if(GenEnemy) SpawnEnemyTanks(levelData, cellSize);
+        if (genEnemy)
+        {
+            SpawnEnemyTanks(levelData, cellSize);
+        }
     }
 
-    private void SpawnPlayerTank(LevelData levelData, float cellSize)
+    private void SpawnPlayerTank(LevelData levelData, float currentCellSize)
     {
-        if (levelContainer == null || levelData == null || dataManager == null) return;
+        if (levelContainer == null || levelData == null || dataManager == null)
+        {
+            return;
+        }
 
-        var gameMode = currentGameMode;
-
-        
-
-        // 如果没有找到，使用默认位置
         if (spawnPlayerPoints.Count == 0)
         {
             spawnPlayerPoints.Add(new Vector2Int(levelData.width / 2, levelData.height / 2));
         }
 
-        // 生成玩家坦克
-        if (gameMode == GameMode.SinglePlayer && spawnPlayerPoints.Count >= 1)
+        if (currentGameMode == GameMode.SinglePlayer && spawnPlayerPoints.Count >= 1)
         {
-            this.Player2Health=0;
-            CreatePlayerTank(levelData, cellSize, spawnPlayerPoints[0], Color.white, 1, tank => playerTank1 = tank);
+            Player2Health = 0;
+            CreatePlayerTank(levelData, currentCellSize, spawnPlayerPoints[0], Color.white, 1, tank => playerTank1 = tank);
         }
-        else if (gameMode == GameMode.TwoPlayer)
+        else if (currentGameMode == GameMode.TwoPlayer)
         {
-            CreatePlayerTank(levelData, cellSize, spawnPlayerPoints[0], Color.white, 1, tank => playerTank1 = tank);
+            CreatePlayerTank(levelData, currentCellSize, spawnPlayerPoints[0], Color.white, 1, tank => playerTank1 = tank);
             if (spawnPlayerPoints.Count > 1)
             {
-                CreatePlayerTank(levelData, cellSize, spawnPlayerPoints[1], Color.blue, 2, tank => playerTank2 = tank);
+                CreatePlayerTank(levelData, currentCellSize, spawnPlayerPoints[1], Color.blue, 2, tank => playerTank2 = tank);
             }
             else
             {
-                // 如果只有一个出生点，第二个玩家放在附近
-                var pos2 = spawnPlayerPoints[0] + Vector2Int.right;
+                Vector2Int pos2 = spawnPlayerPoints[0] + Vector2Int.right;
                 if (levelData.IsPositionValid(pos2.x, pos2.y))
                 {
-                    CreatePlayerTank(levelData, cellSize, pos2, Color.blue, 2, tank => playerTank2 = tank);
+                    CreatePlayerTank(levelData, currentCellSize, pos2, Color.blue, 2, tank => playerTank2 = tank);
                 }
             }
         }
     }
 
-    private void CreatePlayerTank(LevelData levelData, float cellSize, Vector2Int spawnGrid, Color color, int playerIndex, System.Action<PlayerTank> onSpawned = null)
+    private void CreatePlayerTank(LevelData levelData, float currentCellSize, Vector2Int spawnGrid, Color color, int playerIndex, System.Action<PlayerTank> onSpawned = null)
     {
-        StartCoroutine(SpawnTankRoutine<PlayerTank>(new TankSpawnRequest
+        StartCoroutine(SpawnTankRoutine(new TankSpawnRequest
         {
             Kind = TankSpawnKind.Player,
             Prefab = PlayerPrefab,
             LevelData = levelData,
             SpawnGrid = spawnGrid,
-            Color = Color.white,
+            Color = color,
             PlayerIndex = playerIndex,
             SpawnContextVersion = spawnContextVersion
         }, onSpawned));
     }
 
-    private void ClearPlayerTank()
+    private void SpawnEnemyTanks(LevelData levelData, float currentCellSize, bool genOneEnemy = false)
     {
-        if (playerTank1 != null)
+        if (levelContainer == null || levelData == null || spawnEnemyPoints == null || spawnEnemyPoints.Count == 0)
         {
-            if (playerTank1.gameObject != null)
-            {
-                Destroy(playerTank1.gameObject);
-            }
-            playerTank1 = null;
+            return;
         }
 
-        if (playerTank2 != null)
+        if (genOneEnemy)
         {
-            if (playerTank2.gameObject != null)
+            if (TryGetAvailableEnemySpawnPoint(out Vector2Int spawnPoint))
             {
-                PlayTankDieEffect(playerTank2);
-                Destroy(playerTank2.gameObject);
-            }
-            playerTank2 = null;
-        }
-    }
-
-    private void SpawnEnemyTanks(LevelData levelData, float cellSize,bool GenOneEnmey = false)
-    {
-        if (levelContainer == null || levelData == null) return;
-
-        // ClearEnemyTanks();
-
-        // 找到所有敌方出生点
-        
-        // 生成敌方坦克
-        // 每个出生地都生成
-        if (!GenOneEnmey)
-        {
-            foreach (var spawnPoint in spawnEnemyPoints)
-            {
-                CreateEnemyTank(cellSize, spawnPoint, Color.red, tank => enemyTanks.Add(tank));
+                EnemyTankType enemyType = GetRandomEnemyTankType();
+                CreateEnemyTank(currentCellSize, spawnPoint, Color.red, enemyType, tank => enemyTanks.Add(tank));
             }
         }
-        // 随机一个出生地生成一个敌人
         else
         {
-            var randomSpawnPoint = spawnEnemyPoints[Random.Range(0, spawnEnemyPoints.Count)];
-            CreateEnemyTank(cellSize, randomSpawnPoint, Color.red, tank => enemyTanks.Add(tank));
+            foreach (Vector2Int spawnPoint in GetAvailableEnemySpawnPoints())
+            {
+                EnemyTankType enemyType = GetRandomEnemyTankType();
+                CreateEnemyTank(currentCellSize, spawnPoint, Color.red, enemyType, tank => enemyTanks.Add(tank));
+            }
         }
     }
 
-    private void CreateEnemyTank(float cellSize, Vector2Int spawnGrid, Color color, System.Action<EnemyTank> onSpawned = null)
+    private void CreateEnemyTank(float currentCellSize, Vector2Int spawnGrid, Color color, EnemyTankType enemyType, System.Action<EnemyTank> onSpawned = null)
     {
-        StartCoroutine(SpawnTankRoutine<EnemyTank>(new TankSpawnRequest
+        if (!enemyPrefabs.TryGetValue(enemyType, out GameObject enemyPrefab))
+        {
+            return;
+        }
+
+        StartCoroutine(SpawnTankRoutine(new TankSpawnRequest
         {
             Kind = TankSpawnKind.Enemy,
-            Prefab = EnemyPrefab,
+            Prefab = enemyPrefab,
             SpawnGrid = spawnGrid,
-            Color = Color.white,
+            Color = color,
             EnemyId = CurEnemyCount--,
-            ConsumeEnemyCount = true,
+            EnemyType = enemyType,
+            EnemyHealth = -1,
+            EnemyHasBonusItem = Random.value < 0.35f,
+            EnemyBonusItemType = GetRandomItemType(),
             SpawnContextVersion = spawnContextVersion
         }, onSpawned));
     }
 
-
-    private void CreateEnemyTank(float cellSize,Vector2 pos, Color color,bool IsRestore=false, System.Action<EnemyTank> onSpawned = null)
+    private void CreateEnemyTank(float currentCellSize, Vector2 position, Color color, EnemyTankType enemyType, bool isRestore = false, int restoredHealth = -1, bool restoredHasItem = false, GameItemType restoredItemType = GameItemType.FreezeEnemies, System.Action<EnemyTank> onSpawned = null)
     {
-        StartCoroutine(SpawnTankRoutine<EnemyTank>(new TankSpawnRequest
+        if (!enemyPrefabs.TryGetValue(enemyType, out GameObject enemyPrefab))
+        {
+            return;
+        }
+
+        StartCoroutine(SpawnTankRoutine(new TankSpawnRequest
         {
             Kind = TankSpawnKind.Enemy,
-            Prefab = EnemyPrefab,
-            AnchoredPosition = pos,
+            Prefab = enemyPrefab,
+            AnchoredPosition = position,
             UseAnchoredPosition = true,
             Color = color,
             EnemyId = CurEnemyCount--,
-            ConsumeEnemyCount = !IsRestore,
+            EnemyType = enemyType,
+            EnemyHealth = restoredHealth,
+            EnemyHasBonusItem = restoredHasItem,
+            EnemyBonusItemType = restoredItemType,
             SpawnContextVersion = spawnContextVersion
         }, onSpawned));
     }
 
     private IEnumerator SpawnTankRoutine<T>(TankSpawnRequest request, System.Action<T> onSpawned) where T : Component
     {
-        if (request.Prefab == null || levelContainer == null)
-        {
-            yield break;
-        }
-
-        GameObject spawnEffect = PlayTankSpawnEffect(request);
-        yield return new WaitForSeconds(TankSpawnEffectDuration);
-
-        if (spawnEffect != null)
-        {
-            Destroy(spawnEffect);
-        }
-
-        if (!IsSpawnRequestValid(request))
+        if (request.Prefab == null || levelContainer == null || !IsSpawnRequestValid(request))
         {
             yield break;
         }
@@ -596,11 +559,6 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         }
 
         onSpawned?.Invoke(tank);
-
-        if (tank is PlayerTank playerTank)
-        {
-            yield return StartCoroutine(PlayPlayerShieldEffect(playerTank));
-        }
     }
 
     private T SpawnTank<T>(TankSpawnRequest request) where T : Component
@@ -620,9 +578,6 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         }
 
         InitializeSpawnedTank(tank, request);
-
-        
-
         return tank;
     }
 
@@ -637,34 +592,46 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         return levelContainer != null && request.SpawnContextVersion == spawnContextVersion;
     }
 
-    private Vector2 GetSpawnAnchoredPosition(TankSpawnRequest request)
+    private bool TryGetAvailableEnemySpawnPoint(out Vector2Int spawnPoint)
     {
-        if (request.UseAnchoredPosition)
+        List<Vector2Int> availablePoints = GetAvailableEnemySpawnPoints();
+        if (availablePoints.Count > 0)
         {
-            return request.AnchoredPosition;
+            spawnPoint = availablePoints[0];
+            return true;
         }
 
-        return new Vector2((request.SpawnGrid.x+0.5f ) * cellSize, (request.SpawnGrid.y+0.5f) * cellSize);
+        spawnPoint = default;
+        return false;
     }
 
-    private void SetupEffectObject(GameObject effectObject, Vector2 anchoredPosition, Transform parent)
+    private List<Vector2Int> GetAvailableEnemySpawnPoints()
     {
-        effectObject.transform.SetParent(parent, false);
-        effectObject.transform.SetAsLastSibling();
+        List<Vector2Int> candidates = new List<Vector2Int>(spawnEnemyPoints);
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            int randomIndex = Random.Range(i, candidates.Count);
+            Vector2Int temp = candidates[i];
+            candidates[i] = candidates[randomIndex];
+            candidates[randomIndex] = temp;
+        }
 
-        var rectTransform = effectObject.GetComponent<RectTransform>();
-        if (rectTransform != null)
+        List<Vector2Int> availablePoints = new List<Vector2Int>();
+        foreach (Vector2Int candidate in candidates)
         {
-            rectTransform.anchorMin = new Vector2(0f, 0f);
-            rectTransform.anchorMax = new Vector2(0f, 0f);
-            rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            rectTransform.anchoredPosition = anchoredPosition;
-            rectTransform.sizeDelta = anchoredPosition==Vector2.zero? new Vector2(cellSize*1.2f,cellSize*1.2f):new Vector2(cellSize,cellSize);
+            if (!IsTankBlockingEnemySpawn(candidate))
+            {
+                availablePoints.Add(candidate);
+            }
         }
-        else
-        {
-            effectObject.transform.localPosition = anchoredPosition;
-        }
+
+        return availablePoints;
+    }
+
+    private bool IsTankBlockingEnemySpawn(Vector2Int spawnGrid)
+    {
+        Vector2 spawnPosition = new Vector2((spawnGrid.x + 0.5f) * cellSize, (spawnGrid.y + 0.5f) * cellSize);
+        return HasNearbyTank(spawnPosition);
     }
 
     private void InitializeSpawnedTank<T>(T tank, TankSpawnRequest request) where T : Component
@@ -679,165 +646,212 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         {
             if (request.UseAnchoredPosition)
             {
-                enemyTank.Initialize(cellSize, request.AnchoredPosition, request.Color, request.EnemyId);
+                enemyTank.Initialize(cellSize, request.AnchoredPosition, request.Color, request.EnemyId, request.EnemyHealth, request.EnemyHasBonusItem, request.EnemyBonusItemType);
             }
             else
             {
-                enemyTank.Initialize(cellSize, request.SpawnGrid, request.Color, request.EnemyId);
+                enemyTank.Initialize(cellSize, request.SpawnGrid, request.Color, request.EnemyId, request.EnemyHealth, request.EnemyHasBonusItem, request.EnemyBonusItemType);
             }
         }
     }
 
-    private GameObject PlayTankSpawnEffect(TankSpawnRequest request)
+    private EnemyTankType GetRandomEnemyTankType()
     {
-        if (SpawnEffectPrefab == null || levelContainer == null)
+        EnemyTankType[] types =
         {
-            return null;
-        }
-
-        GameObject effectObject = Instantiate(SpawnEffectPrefab);
-        SetupEffectObject(effectObject, GetSpawnAnchoredPosition(request), levelContainer);
-        return effectObject;
+            EnemyTankType.Basic,
+            EnemyTankType.Fast,
+            EnemyTankType.Heavy
+        };
+        return types[Random.Range(0, types.Length)];
     }
 
-    private IEnumerator PlayPlayerShieldEffect(PlayerTank playerTank)
+    private GameItemType GetRandomItemType()
     {
-        if (playerTank == null)
+        GameItemType[] types =
         {
-            yield break;
+            GameItemType.FreezeEnemies,
+            GameItemType.PlayerShield,
+            GameItemType.PlayerLife,
+            GameItemType.PlayerPower,
+            GameItemType.DestroyAllEnemies,
+            GameItemType.BaseInvincible
+        };
+        return types[Random.Range(0, types.Length)];
+    }
+
+    private EnemyTankType GetSavedEnemyType(int index)
+    {
+        if (currentGameData.enemyTypes != null && index >= 0 && index < currentGameData.enemyTypes.Length)
+        {
+            int rawType = currentGameData.enemyTypes[index];
+            if (System.Enum.IsDefined(typeof(EnemyTankType), rawType))
+            {
+                return (EnemyTankType)rawType;
+            }
         }
 
-        playerTank.SetShielded(true);
-        GameObject shieldEffect = null;
-        if (ShieldEffectPrefab != null)
+        return EnemyTankType.Basic;
+    }
+
+    private int GetSavedEnemyHealth(int index)
+    {
+        if (currentGameData.enemyHealths != null && index >= 0 && index < currentGameData.enemyHealths.Length)
         {
-            shieldEffect = Instantiate(ShieldEffectPrefab);
-            SetupEffectObject(shieldEffect, new Vector2(0.5f*cellSize,0.5f*cellSize), playerTank.transform);
+            return currentGameData.enemyHealths[index];
         }
 
-        yield return new WaitForSeconds(PlayerShieldDuration);
+        return -1;
+    }
 
-        if (shieldEffect != null)
+    private bool GetSavedEnemyHasItem(int index)
+    {
+        if (currentGameData.enemyHasItems != null && index >= 0 && index < currentGameData.enemyHasItems.Length)
         {
-            Destroy(shieldEffect);
+            return currentGameData.enemyHasItems[index];
         }
 
-        if (playerTank != null)
+        return false;
+    }
+
+    private GameItemType GetSavedEnemyItemType(int index)
+    {
+        if (currentGameData.enemyItemTypes != null && index >= 0 && index < currentGameData.enemyItemTypes.Length)
         {
-            playerTank.SetShielded(false);
+            int rawType = currentGameData.enemyItemTypes[index];
+            if (System.Enum.IsDefined(typeof(GameItemType), rawType))
+            {
+                return (GameItemType)rawType;
+            }
+        }
+
+        return GameItemType.FreezeEnemies;
+    }
+
+    private void RestorePlayersFromSave()
+    {
+        if (playerTank1 != null)
+        {
+            playerTank1.GetComponent<RectTransform>().anchoredPosition = currentGameData.player1Position;
+            playerTank1.RestoreState(Mathf.Max(1, Player1Health), Player1PowerLevel);
+            if (Player1Health <= 0)
+            {
+                Destroy(playerTank1.gameObject);
+                playerTank1 = null;
+            }
+        }
+
+        if (playerTank2 != null)
+        {
+            playerTank2.GetComponent<RectTransform>().anchoredPosition = currentGameData.player2Position;
+            playerTank2.RestoreState(Mathf.Max(1, Player2Health), Player2PowerLevel);
+            if (Player2Health <= 0)
+            {
+                Destroy(playerTank2.gameObject);
+                playerTank2 = null;
+            }
         }
     }
 
-    private void PlayTankDieEffect(Component tank)
+    private void RestoreEnemiesFromSave()
     {
-        if (tank == null || DieEffectPrefab == null || levelContainer == null)
+        enemyTanks.Clear();
+        for (int i = 0; i < currentGameData.enmeyPositions.Length; i++)
+        {
+            EnemyTankType enemyType = GetSavedEnemyType(i);
+            int enemyHealth = GetSavedEnemyHealth(i);
+            bool hasBonusItem = GetSavedEnemyHasItem(i);
+            GameItemType itemType = GetSavedEnemyItemType(i);
+
+            CreateEnemyTank(cellSize, currentGameData.enmeyPositions[i], Color.white, enemyType, true, enemyHealth, hasBonusItem, itemType, tank => enemyTanks.Add(tank));
+        }
+    }
+
+    private void RestoreItemsFromSave()
+    {
+        if (currentGameData.itemPositions == null || currentGameData.itemTypes == null)
         {
             return;
         }
 
-        RectTransform tankRectTransform = tank.GetComponent<RectTransform>();
-        if (tankRectTransform == null)
+        for (int i = 0; i < Mathf.Min(currentGameData.itemPositions.Length, currentGameData.itemTypes.Length); i++)
         {
-            return;
-        }
+            int rawType = currentGameData.itemTypes[i];
+            if (!System.Enum.IsDefined(typeof(GameItemType), rawType))
+            {
+                continue;
+            }
 
-        GameObject effectObject = Instantiate(DieEffectPrefab);
-        SetupEffectObject(effectObject, tankRectTransform.anchoredPosition, levelContainer);
-        StartCoroutine(DestroyEffectWhenFinished(effectObject));
+            SpawnItem(currentGameData.itemPositions[i], (GameItemType)rawType);
+        }
     }
 
-    private IEnumerator DestroyEffectWhenFinished(GameObject effectObject)
+    private void ClearPlayerTank()
     {
-        if (effectObject == null)
+        if (playerTank1 != null)
         {
-            yield break;
+            Destroy(playerTank1.gameObject);
+            playerTank1 = null;
         }
 
-        Animator animator = effectObject.GetComponent<Animator>();
-        if (animator != null && animator.runtimeAnimatorController != null)
+        if (playerTank2 != null)
         {
-            yield return null;
-
-            while (effectObject != null && animator != null)
-            {
-                AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
-                if (!animator.IsInTransition(0) && stateInfo.normalizedTime >= 1f)
-                {
-                    break;
-                }
-
-                yield return null;
-            }
-        }
-        else
-        {
-            ParticleSystem[] particleSystems = effectObject.GetComponentsInChildren<ParticleSystem>();
-            if (particleSystems.Length > 0)
-            {
-                while (effectObject != null)
-                {
-                    bool isAlive = false;
-                    foreach (ParticleSystem particleSystem in particleSystems)
-                    {
-                        if (particleSystem != null && particleSystem.IsAlive(true))
-                        {
-                            isAlive = true;
-                            break;
-                        }
-                    }
-
-                    if (!isAlive)
-                    {
-                        break;
-                    }
-
-                    yield return null;
-                }
-            }
-            else
-            {
-                yield return null;
-            }
-        }
-
-        if (effectObject != null)
-        {
-            Destroy(effectObject);
+            Destroy(playerTank2.gameObject);
+            playerTank2 = null;
         }
     }
-    
+
     private void ClearEnemyTanks()
     {
-        foreach (var enemyTank in enemyTanks)
+        foreach (EnemyTank enemyTank in enemyTanks)
         {
             if (enemyTank != null && enemyTank.gameObject != null)
             {
                 Destroy(enemyTank.gameObject);
             }
         }
+
         enemyTanks.Clear();
-       
+    }
+
+    private void ClearItems()
+    {
+        foreach (GameItem item in activeItems)
+        {
+            if (item != null && item.gameObject != null)
+            {
+                Destroy(item.gameObject);
+            }
+        }
+
+        activeItems.Clear();
     }
 
     private GameObject CreateCell(LevelTileType tileType)
     {
-        // var cell = new GameObject("TileCell", typeof(RectTransform), typeof(Image));
-        
-        if(tileType==LevelTileType.PlayerSpawn || tileType == LevelTileType.EnemySpawn)
+        if (tileType == LevelTileType.PlayerSpawn || tileType == LevelTileType.EnemySpawn)
         {
             return CreateCell(LevelTileType.Empty);
         }
-        var cell = Instantiate(CellPrefabs[(int)tileType]);
 
-        var image = cell.GetComponent<Image>();
+        GameObject cell = Instantiate(CellPrefabs[(int)tileType]);
+        RuntimeLevelTile runtimeTile = cell.GetComponent<RuntimeLevelTile>();
+        if (runtimeTile == null)
+        {
+            runtimeTile = cell.AddComponent<RuntimeLevelTile>();
+        }
+
+        runtimeTile.Initialize(tileType);
+
+        Image image = cell.GetComponent<Image>();
         image.color = GetColorForTile(tileType);
 
         if (IsBlockingTile(tileType))
         {
-            var collider = cell.AddComponent<BoxCollider2D>();
+            BoxCollider2D collider = cell.AddComponent<BoxCollider2D>();
             collider.offset = Vector2.zero;
             collider.size = Vector2.one;
-            var rigidbody = cell.AddComponent<Rigidbody2D>();
+            Rigidbody2D rigidbody = cell.AddComponent<Rigidbody2D>();
             rigidbody.bodyType = RigidbodyType2D.Static;
             rigidbody.simulated = true;
         }
@@ -845,37 +859,63 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         return cell;
     }
 
-
     private void UpdateGameData()
     {
         GameData gameData = new GameData
         {
             player1Position = playerTank1 != null ? playerTank1.GetComponent<RectTransform>().anchoredPosition : Vector2.zero,
             player2Position = playerTank2 != null ? playerTank2.GetComponent<RectTransform>().anchoredPosition : Vector2.zero,
-            gameMode = dataManager.GetGameData().gameMode,
-            LevelIndex = levelManager.CurrentLevelIndex,
             player1Health = Player1Health,
             player2Health = Player2Health,
+            player1PowerLevel = playerTank1 != null ? playerTank1.PowerLevel : Player1PowerLevel,
+            player2PowerLevel = playerTank2 != null ? playerTank2.PowerLevel : Player2PowerLevel,
+            gameMode = dataManager.GetGameData().gameMode,
+            LevelIndex = levelManager.CurrentLevelIndex,
             maxEnemyCount = CurEnemyCount
-            
         };
-        gameData.enmeyPositions = enemyTanks!=null? new Vector2[enemyTanks.Count] : null;
-        foreach (var enemyTank in enemyTanks)
+
+        gameData.enmeyPositions = enemyTanks != null ? new Vector2[enemyTanks.Count] : null;
+        gameData.enemyTypes = enemyTanks != null ? new int[enemyTanks.Count] : null;
+        gameData.enemyHealths = enemyTanks != null ? new int[enemyTanks.Count] : null;
+        gameData.enemyHasItems = enemyTanks != null ? new bool[enemyTanks.Count] : null;
+        gameData.enemyItemTypes = enemyTanks != null ? new int[enemyTanks.Count] : null;
+
+        for (int i = 0; i < enemyTanks.Count; i++)
         {
-            if (enemyTank != null)
+            EnemyTank enemyTank = enemyTanks[i];
+            if (enemyTank == null)
             {
-                gameData.enmeyPositions[enemyTanks.IndexOf(enemyTank)] = enemyTank.GetComponent<RectTransform>().anchoredPosition;
+                continue;
             }
+
+            gameData.enmeyPositions[i] = enemyTank.GetComponent<RectTransform>().anchoredPosition;
+            gameData.enemyTypes[i] = (int)enemyTank.TankType;
+            gameData.enemyHealths[i] = enemyTank.CurrentHealth;
+            gameData.enemyHasItems[i] = enemyTank.HasBonusItem;
+            gameData.enemyItemTypes[i] = (int)enemyTank.BonusItemType;
+        }
+
+        gameData.itemPositions = activeItems != null ? new Vector2[activeItems.Count] : null;
+        gameData.itemTypes = activeItems != null ? new int[activeItems.Count] : null;
+        for (int i = 0; i < activeItems.Count; i++)
+        {
+            GameItem item = activeItems[i];
+            if (item == null)
+            {
+                continue;
+            }
+
+            gameData.itemPositions[i] = item.GetComponent<RectTransform>().anchoredPosition;
+            gameData.itemTypes[i] = (int)item.ItemType;
         }
 
         dataManager.SetGameData(gameData);
-        
     }
-
 
     public sealed class BulletEvent : GameEvent
     {
         public GameObject gameObject;
+
         public BulletEvent(GameObject gameObject)
         {
             this.gameObject = gameObject;
@@ -884,17 +924,233 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
 
     private void CreateBullet(GameObject parent)
     {
-        
-
-        GameObject bullet = Instantiate(BulletPrefab,parent.transform.position,Quaternion.identity);
+        GameObject bullet = Instantiate(BulletPrefab, parent.transform.position, Quaternion.identity);
         bullet.transform.SetParent(levelContainer);
-        var Bullet = bullet.AddComponent<Bullet>();
-        Bullet.movedir = parent.transform.up;
-        Bullet.selfTag = parent.tag;
-        
+        Bullet bulletComponent = bullet.GetComponent<Bullet>();
+        if (bulletComponent == null)
+        {
+            bulletComponent = bullet.AddComponent<Bullet>();
+        }
 
+        bulletComponent.movedir = parent.transform.up;
+        bulletComponent.selfTag = parent.tag;
+        bulletComponent.canBreakSteel = false;
+
+        if (parent.CompareTag("Player"))
+        {
+            PlayerTank owner = parent.GetComponentInParent<PlayerTank>();
+            bulletComponent.canBreakSteel = owner != null && owner.CanBreakSteel;
+        }
     }
 
+    private void SpawnItem(Vector2 anchoredPosition, GameItemType itemType)
+    {
+        if (ItemPrefab == null || levelContainer == null)
+        {
+            return;
+        }
+
+        GameObject itemObject = Instantiate(ItemPrefab);
+        itemObject.transform.SetParent(levelContainer, false);
+        itemObject.transform.SetAsLastSibling();
+
+        GameItem item = itemObject.GetComponent<GameItem>();
+        if (item == null)
+        {
+            item = itemObject.AddComponent<GameItem>();
+        }
+
+        item.Initialize(itemType, cellSize, anchoredPosition);
+        activeItems.Add(item);
+    }
+
+    public void SpawnDroppedItem(Vector2 anchoredPosition, GameItemType itemType)
+    {
+        // SpawnItem(anchoredPosition, itemType);
+        TrySpawnRandomMapItem();
+    }
+
+    public void ApplyItem(PlayerTank playerTank, GameItemType itemType)
+    {
+        if (playerTank == null)
+        {
+            return;
+        }
+
+        switch (itemType)
+        {
+            case GameItemType.FreezeEnemies:
+                frozenEnemyTimer = FreezeDuration;
+                break;
+            case GameItemType.PlayerShield:
+                playerTank.GrantShield();
+                break;
+            case GameItemType.PlayerLife:
+                playerTank.GrantLife();
+                if (playerTank == playerTank1)
+                {
+                    Player1Health++;
+                }
+                else if (playerTank == playerTank2)
+                {
+                    Player2Health++;
+                }
+                break;
+            case GameItemType.PlayerPower:
+                playerTank.UpgradePower();
+                if (playerTank == playerTank1)
+                {
+                    Player1PowerLevel = playerTank.PowerLevel;
+                }
+                else if (playerTank == playerTank2)
+                {
+                    Player2PowerLevel = playerTank.PowerLevel;
+                }
+                break;
+            case GameItemType.DestroyAllEnemies:
+                DestroyAllEnemiesImmediately();
+                break;
+            case GameItemType.BaseInvincible:
+                break;
+        }
+
+        Framework?.PublishEvent(new EnemyCountChangedEvent(CurEnemyCount, Player1Health, Player2Health));
+    }
+
+    public void OnItemPicked(GameItem item)
+    {
+        if (item == null)
+        {
+            return;
+        }
+
+        activeItems.Remove(item);
+        Destroy(item.gameObject);
+    }
+
+    public bool AreEnemiesFrozen()
+    {
+        return frozenEnemyTimer > 0f;
+    }
+
+    private void ResetRandomItemSpawnTimer()
+    {
+        randomItemSpawnTimer = Random.Range(RandomItemSpawnIntervalMin, RandomItemSpawnIntervalMax);
+    }
+
+    private void TrySpawnRandomMapItem()
+    {
+        if (currentLevelData == null || levelContainer == null)
+        {
+            return;
+        }
+
+        List<Vector2Int> candidates = new List<Vector2Int>();
+        for (int y = 0; y < currentLevelData.height; y++)
+        {
+            for (int x = 0; x < currentLevelData.width; x++)
+            {
+                LevelTileType tileType = currentLevelData.GetTile(x, y);
+                if (tileType != LevelTileType.Empty)
+                {
+                    continue;
+                }
+
+                Vector2 anchoredPosition = new Vector2((x + 0.5f) * cellSize, (y + 0.5f) * cellSize);
+                if (HasNearbyDynamicObject(anchoredPosition))
+                {
+                    continue;
+                }
+
+                candidates.Add(new Vector2Int(x, y));
+            }
+        }
+
+        if (candidates.Count == 0)
+        {
+            return;
+        }
+
+        Vector2Int selected = candidates[Random.Range(0, candidates.Count)];
+        Vector2 spawnPosition = new Vector2((selected.x + 0.5f) * cellSize, (selected.y + 0.5f) * cellSize);
+        SpawnItem(spawnPosition, GetRandomItemType());
+    }
+
+    private bool HasNearbyDynamicObject(Vector2 anchoredPosition)
+    {
+        float sqrDistance = cellSize * cellSize * 0.8f;
+
+        if (HasNearbyTank(anchoredPosition))
+        {
+            return true;
+        }
+
+        foreach (GameItem item in activeItems)
+        {
+            if (item == null)
+            {
+                continue;
+            }
+
+            if ((item.GetComponent<RectTransform>().anchoredPosition - anchoredPosition).sqrMagnitude < sqrDistance)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool HasNearbyTank(Vector2 anchoredPosition)
+    {
+        const float minDistanceFactor = 0.9f;
+        float sqrDistance = cellSize * cellSize * minDistanceFactor;
+
+        if (playerTank1 != null && (playerTank1.GetComponent<RectTransform>().anchoredPosition - anchoredPosition).sqrMagnitude < sqrDistance)
+        {
+            return true;
+        }
+
+        if (playerTank2 != null && (playerTank2.GetComponent<RectTransform>().anchoredPosition - anchoredPosition).sqrMagnitude < sqrDistance)
+        {
+            return true;
+        }
+
+        foreach (EnemyTank enemyTank in enemyTanks)
+        {
+            if (enemyTank == null)
+            {
+                continue;
+            }
+
+            if ((enemyTank.GetComponent<RectTransform>().anchoredPosition - anchoredPosition).sqrMagnitude < sqrDistance)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void DestroyAllEnemiesImmediately()
+    {
+        if (enemyTanks.Count == 0)
+        {
+            return;
+        }
+
+        List<EnemyTank> enemiesToDestroy = new List<EnemyTank>(enemyTanks);
+        foreach (EnemyTank enemyTank in enemiesToDestroy)
+        {
+            if (enemyTank == null)
+            {
+                continue;
+            }
+
+            enemyTank.ConfigureBonusItem(false, enemyTank.BonusItemType);
+            enemyTank.TakeDamage(enemyTank.CurrentHealth);
+        }
+    }
 
     private bool IsBlockingTile(LevelTileType tileType)
     {
@@ -906,7 +1162,6 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
 
     private Color GetColorForTile(LevelTileType tileType)
     {
-        
         return tileType switch
         {
             LevelTileType.Empty => new Color(0f, 0f, 0f, 0f),
@@ -914,50 +1169,49 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
             LevelTileType.Steel => new Color(0.5f, 0.5f, 0.5f),
             LevelTileType.Grass => new Color(0.1f, 0.7f, 0.1f),
             LevelTileType.Water => new Color(0.1f, 0.4f, 0.8f),
-            LevelTileType.EnemySpawn => new Color(0.8f, 0.1f, 0.1f,0.1f),
-            LevelTileType.PlayerSpawn => new Color(0.1f, 0.8f, 0.1f,0.1f),
+            LevelTileType.EnemySpawn => new Color(0.8f, 0.1f, 0.1f, 0.1f),
+            LevelTileType.PlayerSpawn => new Color(0.1f, 0.8f, 0.1f, 0.1f),
             LevelTileType.Base => new Color(0.8f, 0.8f, 0.1f),
-
-
-
-            _ => Color.clear,
+            _ => Color.clear
         };
     }
 
-    private void CreateBoundary(LevelData levelData, float cellSize)
+    private void CreateBoundary(LevelData levelData, float currentCellSize)
     {
-        if (levelContainer == null || levelData == null) return;
+        if (levelContainer == null || levelData == null)
+        {
+            return;
+        }
 
-        float width = levelData.width * cellSize;
-        float height = levelData.height * cellSize;
-        float thickness = cellSize * 0.5f;
-        
+        float width = levelData.width * currentCellSize;
+        float height = levelData.height * currentCellSize;
+        float thickness = currentCellSize * 0.5f;
+
         CreateBoundaryWall("Boundary_Bottom", new Vector2(width, thickness), new Vector2(0, -thickness));
         CreateBoundaryWall("Boundary_Top", new Vector2(width, thickness), new Vector2(0, height));
-        CreateBoundaryWall("Boundary_Left", new Vector2(thickness, height), new Vector2(-thickness,0));
+        CreateBoundaryWall("Boundary_Left", new Vector2(thickness, height), new Vector2(-thickness, 0));
         CreateBoundaryWall("Boundary_Right", new Vector2(thickness, height), new Vector2(width, 0));
     }
 
     private void CreateBoundaryWall(string name, Vector2 size, Vector2 anchoredPosition)
     {
-        var boundary = new GameObject(name, typeof(RectTransform), typeof(BoxCollider2D), typeof(Rigidbody2D));
+        GameObject boundary = new GameObject(name, typeof(RectTransform), typeof(BoxCollider2D), typeof(Rigidbody2D));
         boundary.transform.SetParent(levelContainer, false);
         boundary.layer = levelContainer.gameObject.layer;
 
-
-        var rectTransform = boundary.GetComponent<RectTransform>();
-        rectTransform.anchorMin = new Vector2(0, 0);
-        rectTransform.anchorMax = new Vector2(0, 0);
-        rectTransform.pivot = new Vector2(0, 0);
+        RectTransform rectTransform = boundary.GetComponent<RectTransform>();
+        rectTransform.anchorMin = Vector2.zero;
+        rectTransform.anchorMax = Vector2.zero;
+        rectTransform.pivot = Vector2.zero;
         rectTransform.anchoredPosition = anchoredPosition;
         rectTransform.sizeDelta = size;
 
-        var collider = boundary.GetComponent<BoxCollider2D>();
+        BoxCollider2D collider = boundary.GetComponent<BoxCollider2D>();
         collider.size = size;
         collider.offset = size / 2f;
 
-        var rigidbody = boundary.GetComponent<Rigidbody2D>();
-        rigidbody.bodyType = RigidbodyType2D.Static; 
+        Rigidbody2D rigidbody = boundary.GetComponent<Rigidbody2D>();
+        rigidbody.bodyType = RigidbodyType2D.Static;
         rigidbody.simulated = true;
 
         boundaryObjects.Add(boundary);
@@ -965,44 +1219,45 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
 
     private void ClearLevelCells()
     {
-        foreach (var cell in levelCells)
+        foreach (GameObject cell in levelCells)
         {
-
             if (cell != null)
             {
                 Destroy(cell);
             }
         }
+
         levelCells.Clear();
     }
 
     private void ClearBoundaryObjects()
     {
-        foreach (var boundary in boundaryObjects)
+        foreach (GameObject boundary in boundaryObjects)
         {
             if (boundary != null)
             {
                 Destroy(boundary);
             }
         }
+
         boundaryObjects.Clear();
     }
 
-    
-
     #region Event
-    public sealed class PlayerDieEvent: GameEvent
+    public sealed class PlayerDieEvent : GameEvent
     {
         public PlayerTank playerTank;
+
         public PlayerDieEvent(PlayerTank playerTank)
         {
             this.playerTank = playerTank;
         }
     }
 
-    public sealed class EnemyDieEvent: GameEvent
+    public sealed class EnemyDieEvent : GameEvent
     {
         public EnemyTank enemyTank;
+
         public EnemyDieEvent(EnemyTank enemyTank)
         {
             this.enemyTank = enemyTank;
@@ -1014,11 +1269,12 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         public int enemyCount;
         public int P1Health;
         public int P2Health;
-        public EnemyCountChangedEvent(int enemyCount,int p1health,int p2health)
+
+        public EnemyCountChangedEvent(int enemyCount, int p1health, int p2health)
         {
-            this.enemyCount=enemyCount;
-            this.P1Health = p1health;
-            this.P2Health = p2health;
+            this.enemyCount = enemyCount;
+            P1Health = p1health;
+            P2Health = p2health;
         }
     }
     #endregion

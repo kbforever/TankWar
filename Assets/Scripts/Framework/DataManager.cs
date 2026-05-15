@@ -51,8 +51,7 @@ public class DataManager : MonoBehaviour, IGameFeature
 
     public void SaveGameData()
     {
-        
-        if (currentData.enmeyPositions == null|| saverootPath==string.Empty||saverootPath==null) return;
+        if (string.IsNullOrEmpty(saverootPath)) return;
 
         if (!Directory.Exists(saverootPath))
         {
@@ -126,8 +125,16 @@ public class GameData
     public Vector2 player1Position = Vector2.zero;
 
     public Vector2 player2Position = Vector2.zero;
+    public int player1PowerLevel = 0;
+    public int player2PowerLevel = 0;
 
     public Vector2[] enmeyPositions = null;
+    public int[] enemyTypes = null;
+    public int[] enemyHealths = null;
+    public bool[] enemyHasItems = null;
+    public int[] enemyItemTypes = null;
+    public Vector2[] itemPositions = null;
+    public int[] itemTypes = null;
 
     public GameMode gameMode = GameMode.SinglePlayer;
 
