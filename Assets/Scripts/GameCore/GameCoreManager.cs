@@ -11,6 +11,8 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
     private const float RandomItemSpawnIntervalMin = 12f;
     private const float RandomItemSpawnIntervalMax = 20f;
     private const int MaxMapItems = 2;
+    private const float MaxPlayerEnergy = 10f;
+    private const float PlayerEnergyRegenPerSecond = 0.8f;
 
     private GameFramework.GameFramework Framework => GameFramework.GameFramework.Instance;
     private DataManager dataManager;
@@ -38,6 +40,9 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
     private int Player2Health;
     private int Player1PowerLevel;
     private int Player2PowerLevel;
+    private PlayerTankType Player1TankType;
+    private PlayerTankType Player2TankType;
+    private float playerEnergy;
 
     private float cellSize;
     private float frozenEnemyTimer;
@@ -101,6 +106,11 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         if (frozenEnemyTimer > 0f)
         {
             frozenEnemyTimer -= Time.deltaTime;
+        }
+
+        if (Framework.CurrentState == GameState.Playing)
+        {
+            playerEnergy = Mathf.Min(MaxPlayerEnergy, playerEnergy + PlayerEnergyRegenPerSecond * Time.deltaTime);
         }
 
         if (Framework.CurrentState != GameState.Playing || currentLevelData == null)
@@ -201,10 +211,11 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         if (playerTank == playerTank1)
         {
             Player1PowerLevel = playerTank.PowerLevel;
+            Player1TankType = playerTank.TankType;
             Player1Health--;
             if (Player1Health > 0)
             {
-                CreatePlayerTank(currentLevelData, cellSize, spawnPlayerPoints[0], Color.white, 1, tank =>
+                CreatePlayerTank(currentLevelData, cellSize, spawnPlayerPoints[0], Color.white, 1, Player1TankType, tank =>
                 {
                     playerTank1 = tank;
                     playerTank1.RestoreState(Mathf.Max(1, Player1Health), Player1PowerLevel);
@@ -215,10 +226,11 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         if (playerTank == playerTank2)
         {
             Player2PowerLevel = playerTank.PowerLevel;
+            Player2TankType = playerTank.TankType;
             Player2Health--;
             if (Player2Health > 0)
             {
-                CreatePlayerTank(currentLevelData, cellSize, spawnPlayerPoints[1], Color.blue, 2, tank =>
+                CreatePlayerTank(currentLevelData, cellSize, spawnPlayerPoints[1], Color.blue, 2, Player2TankType, tank =>
                 {
                     playerTank2 = tank;
                     playerTank2.RestoreState(Mathf.Max(1, Player2Health), Player2PowerLevel);
@@ -282,6 +294,9 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
                 Player2Health = currentGameData.gameMode == GameMode.SinglePlayer ? 0 : currentGameData.player2Health;
                 Player1PowerLevel = currentGameData.player1PowerLevel;
                 Player2PowerLevel = currentGameData.gameMode == GameMode.SinglePlayer ? 0 : currentGameData.player2PowerLevel;
+                Player1TankType = GetSavedPlayerTankType(currentGameData.player1TankType);
+                Player2TankType = currentGameData.gameMode == GameMode.SinglePlayer ? PlayerTankType.Standard : GetSavedPlayerTankType(currentGameData.player2TankType);
+                playerEnergy = Mathf.Clamp(currentGameData.playerEnergy, 0f, MaxPlayerEnergy);
                 CurEnemyCount = currentGameData.maxEnemyCount + currentGameData.enmeyPositions.Length;
 
                 RestorePlayersFromSave();
@@ -358,6 +373,9 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         Player2Health = levelData.player2Health;
         Player1PowerLevel = 0;
         Player2PowerLevel = 0;
+        Player1TankType = PlayerTankType.Standard;
+        Player2TankType = PlayerTankType.Standard;
+        playerEnergy = MaxPlayerEnergy;
         CurEnemyCount = levelData.maxEnemyCount;
         frozenEnemyTimer = 0f;
         ResetRandomItemSpawnTimer();
@@ -419,7 +437,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         }
 
         CreateBoundary(levelData, cellSize);
-        SpawnPlayerTank(levelData, cellSize);
+        // SpawnPlayerTank(levelData, cellSize);
         if (genEnemy)
         {
             SpawnEnemyTanks(levelData, cellSize);
@@ -441,29 +459,29 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         if (currentGameMode == GameMode.SinglePlayer && spawnPlayerPoints.Count >= 1)
         {
             Player2Health = 0;
-            CreatePlayerTank(levelData, currentCellSize, spawnPlayerPoints[0], Color.white, 1, tank => playerTank1 = tank);
+            CreatePlayerTank(levelData, currentCellSize, spawnPlayerPoints[0], Color.white, 1, Player1TankType, tank => playerTank1 = tank);
         }
         else if (currentGameMode == GameMode.TwoPlayer)
         {
-            CreatePlayerTank(levelData, currentCellSize, spawnPlayerPoints[0], Color.white, 1, tank => playerTank1 = tank);
+            CreatePlayerTank(levelData, currentCellSize, spawnPlayerPoints[0], Color.white, 1, Player1TankType, tank => playerTank1 = tank);
             if (spawnPlayerPoints.Count > 1)
             {
-                CreatePlayerTank(levelData, currentCellSize, spawnPlayerPoints[1], Color.blue, 2, tank => playerTank2 = tank);
+                CreatePlayerTank(levelData, currentCellSize, spawnPlayerPoints[1], Color.blue, 2, Player2TankType, tank => playerTank2 = tank);
             }
             else
             {
                 Vector2Int pos2 = spawnPlayerPoints[0] + Vector2Int.right;
                 if (levelData.IsPositionValid(pos2.x, pos2.y))
                 {
-                    CreatePlayerTank(levelData, currentCellSize, pos2, Color.blue, 2, tank => playerTank2 = tank);
+                    CreatePlayerTank(levelData, currentCellSize, pos2, Color.blue, 2, Player2TankType, tank => playerTank2 = tank);
                 }
             }
         }
     }
 
-    private void CreatePlayerTank(LevelData levelData, float currentCellSize, Vector2Int spawnGrid, Color color, int playerIndex, System.Action<PlayerTank> onSpawned = null)
+    private void CreatePlayerTank(LevelData levelData, float currentCellSize, Vector2Int spawnGrid, Color color, int playerIndex, PlayerTankType tankType, System.Action<PlayerTank> onSpawned = null)
     {
-        StartCoroutine(SpawnTankRoutine(new TankSpawnRequest
+        StartCoroutine(SpawnTankRoutine<PlayerTank>(new TankSpawnRequest
         {
             Kind = TankSpawnKind.Player,
             Prefab = PlayerPrefab,
@@ -472,7 +490,15 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
             Color = color,
             PlayerIndex = playerIndex,
             SpawnContextVersion = spawnContextVersion
-        }, onSpawned));
+        }, tank =>
+        {
+            if (tank != null)
+            {
+                tank.ConfigureType(tankType);
+            }
+
+            onSpawned?.Invoke(tank);
+        }));
     }
 
     private void SpawnEnemyTanks(LevelData levelData, float currentCellSize, bool genOneEnemy = false)
@@ -733,6 +759,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         if (playerTank1 != null)
         {
             playerTank1.GetComponent<RectTransform>().anchoredPosition = currentGameData.player1Position;
+            playerTank1.ConfigureType(Player1TankType);
             playerTank1.RestoreState(Mathf.Max(1, Player1Health), Player1PowerLevel);
             if (Player1Health <= 0)
             {
@@ -744,6 +771,7 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
         if (playerTank2 != null)
         {
             playerTank2.GetComponent<RectTransform>().anchoredPosition = currentGameData.player2Position;
+            playerTank2.ConfigureType(Player2TankType);
             playerTank2.RestoreState(Mathf.Max(1, Player2Health), Player2PowerLevel);
             if (Player2Health <= 0)
             {
@@ -869,6 +897,9 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
             player2Health = Player2Health,
             player1PowerLevel = playerTank1 != null ? playerTank1.PowerLevel : Player1PowerLevel,
             player2PowerLevel = playerTank2 != null ? playerTank2.PowerLevel : Player2PowerLevel,
+            player1TankType = (int)(playerTank1 != null ? playerTank1.TankType : Player1TankType),
+            player2TankType = (int)(playerTank2 != null ? playerTank2.TankType : Player2TankType),
+            playerEnergy = playerEnergy,
             gameMode = dataManager.GetGameData().gameMode,
             LevelIndex = levelManager.CurrentLevelIndex,
             maxEnemyCount = CurEnemyCount
@@ -1151,6 +1182,90 @@ public class GameCoreManager : MonoBehaviour, IGameFeature
             enemyTank.TakeDamage(enemyTank.CurrentHealth);
         }
     }
+
+    private PlayerTankType GetSavedPlayerTankType(int rawType)
+    {
+        if (System.Enum.IsDefined(typeof(PlayerTankType), rawType))
+        {
+            return (PlayerTankType)rawType;
+        }
+
+        return PlayerTankType.Standard;
+    }
+
+    public bool TrySpawnPlayerTankFromCard(PlayerTankType tankType, Vector2 screenPosition)
+    {
+        if (levelContainer == null || currentLevelData == null)
+        {
+            return false;
+        }
+
+        int energyCost = PlayerTank.GetEnergyCost(tankType);
+        if (playerEnergy < energyCost)
+        {
+            return false;
+        }
+
+        Canvas canvas = levelContainer.GetComponentInParent<Canvas>();
+        Camera eventCamera = null;
+        if (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+        {
+            eventCamera = canvas.worldCamera;
+        }
+
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(levelContainer, screenPosition, eventCamera, out Vector2 localPoint))
+        {
+            return false;
+        }
+
+        Vector2 containerSize = levelContainer.rect.size;
+        Vector2 rectPoint = localPoint + Vector2.Scale(containerSize, levelContainer.pivot);
+        if (rectPoint.x < 0f || rectPoint.y < 0f || rectPoint.x > containerSize.x || rectPoint.y > containerSize.y)
+        {
+            return false;
+        }
+
+        int gridX = Mathf.FloorToInt(rectPoint.x / cellSize);
+        int gridY = Mathf.FloorToInt(rectPoint.y / cellSize);
+        if (!currentLevelData.IsPositionValid(gridX, gridY))
+        {
+            return false;
+        }
+
+        if (currentLevelData.GetTile(gridX, gridY) != LevelTileType.Empty)
+        {
+            return false;
+        }
+
+        Vector2 anchoredPosition = new Vector2((gridX + 0.5f) * cellSize, (gridY + 0.5f) * cellSize);
+        if (HasNearbyTank(anchoredPosition))
+        {
+            return false;
+        }
+
+        if (playerTank1 != null)
+        {
+            Destroy(playerTank1.gameObject);
+            playerTank1 = null;
+        }
+
+        Player1TankType = tankType;
+        playerEnergy -= energyCost;
+        CreatePlayerTank(currentLevelData, cellSize, new Vector2Int(gridX, gridY), Color.white, 1, tankType, tank =>
+        {
+            playerTank1 = tank;
+            if (playerTank1 != null)
+            {
+                playerTank1.RestoreState(Mathf.Max(1, Player1Health), Player1PowerLevel);
+            }
+        });
+
+        return true;
+    }
+
+    public float PlayerEnergy => playerEnergy;
+    public float MaxEnergy => MaxPlayerEnergy;
+    public bool CanAffordPlayerTank(PlayerTankType tankType) => playerEnergy >= PlayerTank.GetEnergyCost(tankType);
 
     private bool IsBlockingTile(LevelTileType tileType)
     {

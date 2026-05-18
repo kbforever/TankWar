@@ -1,6 +1,13 @@
 using UnityEngine;
-using LevelGeneration;
 using UnityEngine.UI;
+using LevelGeneration;
+
+public enum PlayerTankType
+{
+    Standard = 0,
+    Rapid = 1,
+    Assault = 2
+}
 
 public class PlayerTank : TankEffectHost, ITakeDamage
 {
@@ -9,6 +16,7 @@ public class PlayerTank : TankEffectHost, ITakeDamage
     [SerializeField] private Color tankColor = Color.green;
     [SerializeField] private int maxHealth = 1;
     [SerializeField] private Sprite[] powerLevelSprites;
+    [SerializeField] private PlayerTankType playerTankType = PlayerTankType.Standard;
 
     private const float ShieldDuration = 1.5f;
     private const float BonusShieldDuration = 5f;
@@ -23,7 +31,6 @@ public class PlayerTank : TankEffectHost, ITakeDamage
     private LevelData levelData;
     private Vector2 currentPosition;
     private Vector2 currentVelocity;
-
     private GameObject FirePos;
     private Vector2Int gridSize;
     private float tileSize;
@@ -32,11 +39,10 @@ public class PlayerTank : TankEffectHost, ITakeDamage
     private int currentHealth;
     private bool isShielded;
     private bool IsAttacking;
-
     private bool shouldMove;
     private Vector2 boxSize;
     private float attackCooldown = 1f;
-    private float lastAttackTime = 0f;
+    private float lastAttackTime;
     private int powerLevel;
 
     private void Update()
@@ -60,8 +66,7 @@ public class PlayerTank : TankEffectHost, ITakeDamage
         float targetAngle = Mathf.Atan2(currentVelocity.y, currentVelocity.x) * Mathf.Rad2Deg - 90f;
         if (currentVelocity != Vector2.zero)
         {
-            Quaternion targetRotation = Quaternion.Euler(0f, 0f, targetAngle);
-            rectTransform.rotation = targetRotation;
+            rectTransform.rotation = Quaternion.Euler(0f, 0f, targetAngle);
         }
 
         CheckMove();
@@ -86,7 +91,7 @@ public class PlayerTank : TankEffectHost, ITakeDamage
             moveSpeed * tileSize * Time.fixedDeltaTime);
 
         shouldMove = true;
-        foreach (var hit in hits)
+        foreach (RaycastHit2D hit in hits)
         {
             if (hit.collider == null)
             {
@@ -177,7 +182,6 @@ public class PlayerTank : TankEffectHost, ITakeDamage
     private void HandleMovement()
     {
         Vector2 inputDirection = inputManager.AcitonByName["Player" + playerIndex].FindAction("Move").ReadValue<Vector2>();
-
         if (inputDirection.sqrMagnitude < 0.001f)
         {
             currentVelocity = Vector2.zero;
@@ -216,6 +220,63 @@ public class PlayerTank : TankEffectHost, ITakeDamage
     public bool IsShielded => isShielded;
     public int PowerLevel => powerLevel;
     public bool CanBreakSteel => powerLevel >= 2;
+    public PlayerTankType TankType => playerTankType;
+
+    public static string GetDisplayName(PlayerTankType type)
+    {
+        return type switch
+        {
+            PlayerTankType.Rapid => "\u901f\u5c04\u578b",
+            PlayerTankType.Assault => "\u7a81\u51fb\u578b",
+            _ => "\u6807\u51c6\u578b"
+        };
+    }
+
+    public static string GetShortName(PlayerTankType type)
+    {
+        return type switch
+        {
+            PlayerTankType.Rapid => "\u901f\u5c04",
+            PlayerTankType.Assault => "\u7a81\u51fb",
+            _ => "\u6807\u51c6"
+        };
+    }
+
+    public static int GetEnergyCost(PlayerTankType type)
+    {
+        return type switch
+        {
+            PlayerTankType.Rapid => 4,
+            PlayerTankType.Assault => 5,
+            _ => 3
+        };
+    }
+
+    public static Color GetTypeColor(PlayerTankType type)
+    {
+        return type switch
+        {
+            PlayerTankType.Rapid => new Color(0.8f, 0.95f, 1f, 1f),
+            PlayerTankType.Assault => new Color(1f, 0.88f, 0.7f, 1f),
+            _ => Color.white
+        };
+    }
+
+    public static string GetTypeDescription(PlayerTankType type)
+    {
+        return type switch
+        {
+            PlayerTankType.Rapid => "\u5c04\u901f\u5feb\uff0c\u673a\u52a8\u66f4\u5f3a",
+            PlayerTankType.Assault => "\u8d39\u7528\u66f4\u9ad8\uff0c\u706b\u529b\u66f4\u7a33",
+            _ => "\u8d39\u7528\u8f83\u4f4e\uff0c\u5c5e\u6027\u5747\u8861"
+        };
+    }
+
+    public void ConfigureType(PlayerTankType type)
+    {
+        playerTankType = type;
+        ApplyPowerLevel(powerLevel);
+    }
 
     public void SetShielded(bool shielded)
     {
@@ -270,19 +331,16 @@ public class PlayerTank : TankEffectHost, ITakeDamage
     {
         powerLevel = Mathf.Clamp(value, 0, MaxPowerLevel);
 
-        switch (powerLevel)
+        switch (playerTankType)
         {
-            case 0:
-                attackCooldown = 1f;
-                moveSpeed = 3.5f;
+            case PlayerTankType.Rapid:
+                ApplyRapidStats();
                 break;
-            case 1:
-                attackCooldown = 0.65f;
-                moveSpeed = 3.75f;
+            case PlayerTankType.Assault:
+                ApplyAssaultStats();
                 break;
             default:
-                attackCooldown = 0.4f;
-                moveSpeed = 4f;
+                ApplyStandardStats();
                 break;
         }
 
@@ -300,7 +358,7 @@ public class PlayerTank : TankEffectHost, ITakeDamage
         if (sprite != null)
         {
             tankImage.sprite = sprite;
-            tankImage.color = Color.white;
+            tankImage.color = GetTypeColor(playerTankType);
             return;
         }
 
@@ -316,5 +374,62 @@ public class PlayerTank : TankEffectHost, ITakeDamage
 
         int spriteIndex = Mathf.Clamp(powerLevel, 0, powerLevelSprites.Length - 1);
         return powerLevelSprites[spriteIndex];
+    }
+
+    private void ApplyStandardStats()
+    {
+        switch (powerLevel)
+        {
+            case 0:
+                attackCooldown = 1f;
+                moveSpeed = 3.5f;
+                break;
+            case 1:
+                attackCooldown = 0.65f;
+                moveSpeed = 3.75f;
+                break;
+            default:
+                attackCooldown = 0.4f;
+                moveSpeed = 4f;
+                break;
+        }
+    }
+
+    private void ApplyRapidStats()
+    {
+        switch (powerLevel)
+        {
+            case 0:
+                attackCooldown = 0.85f;
+                moveSpeed = 3.9f;
+                break;
+            case 1:
+                attackCooldown = 0.55f;
+                moveSpeed = 4.15f;
+                break;
+            default:
+                attackCooldown = 0.32f;
+                moveSpeed = 4.35f;
+                break;
+        }
+    }
+
+    private void ApplyAssaultStats()
+    {
+        switch (powerLevel)
+        {
+            case 0:
+                attackCooldown = 1.1f;
+                moveSpeed = 3.2f;
+                break;
+            case 1:
+                attackCooldown = 0.75f;
+                moveSpeed = 3.45f;
+                break;
+            default:
+                attackCooldown = 0.45f;
+                moveSpeed = 3.75f;
+                break;
+        }
     }
 }

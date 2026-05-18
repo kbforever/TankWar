@@ -127,6 +127,9 @@ public class GameData
     public Vector2 player2Position = Vector2.zero;
     public int player1PowerLevel = 0;
     public int player2PowerLevel = 0;
+    public int player1TankType = 0;
+    public int player2TankType = 0;
+    public float playerEnergy = 10f;
 
     public Vector2[] enmeyPositions = null;
     public int[] enemyTypes = null;
